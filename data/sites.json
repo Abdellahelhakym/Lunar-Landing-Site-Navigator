@@ -1,0 +1,42 @@
+[
+  {
+    "id": "shackleton",
+    "name": "Shackleton Crater rim (approximate point)",
+    "lon": 0.0,
+    "lat": -89.9,
+    "alt_km": 0,
+    "coordinate_note": "Approximate point within the IAU Gazetteer crater bounds; not the crater center or an officially selected landing site."
+  },
+  {
+    "id": "malapert",
+    "name": "Malapert Massif (approximate point)",
+    "lon": 0.0,
+    "lat": -86.0,
+    "alt_km": 0,
+    "coordinate_note": "Representative point only. NASA lists this candidate region but does not publish one specific landing-site coordinate."
+  },
+  {
+    "id": "haworth",
+    "name": "Haworth Crater (IAU center)",
+    "lon": -5.17,
+    "lat": -87.45,
+    "alt_km": 0,
+    "coordinate_note": "IAU Gazetteer crater center; not a specific Artemis landing site."
+  },
+  {
+    "id": "nobile",
+    "name": "Nobile Crater (IAU center)",
+    "lon": 53.27,
+    "lat": -85.28,
+    "alt_km": 0,
+    "coordinate_note": "IAU Gazetteer crater center; not a specific Artemis landing site."
+  },
+  {
+    "id": "artemis",
+    "name": "Peak Near Shackleton (representative point only)",
+    "lon": 0.0,
+    "lat": -89.5,
+    "alt_km": 0,
+    "coordinate_note": "Approximate representative point only. NASA's Artemis III announcement names the region but does not provide a single site coordinate."
+  }
+]

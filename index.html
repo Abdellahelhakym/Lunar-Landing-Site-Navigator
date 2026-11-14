@@ -1,0 +1,245 @@
+<!-- Developed with AI assistance (Claude). Idea and design by the team. -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#0f141a">
+  <title>Lunar Landing Site Navigator</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="project-name">Lunar Landing Site Navigator</div>
+      <nav class="tabs" role="tablist" aria-label="Main sections">
+        <button class="tab-button active" id="tab-analysis" role="tab" aria-selected="true" aria-controls="panel-analysis" data-tab="analysis">Analysis</button>
+        <button class="tab-button" id="tab-compare" role="tab" aria-selected="false" aria-controls="panel-compare" data-tab="compare">Compare</button>
+        <button class="tab-button" id="tab-validation" role="tab" aria-selected="false" aria-controls="panel-validation" data-tab="validation">Validation</button>
+        <button class="tab-button" id="tab-about" role="tab" aria-selected="false" aria-controls="panel-about" data-tab="about">About</button>
+      </nav>
+    </div>
+  </header>
+
+  <div class="page-notice" id="horizon-warning">Flat horizon (no terrain data): Sun visibility is an upper bound. All times in UT.</div>
+  <div class="system-messages">
+    <div id="data-message" class="data-message" role="status" hidden></div>
+    <div id="app-error" class="app-error" role="alert" hidden></div>
+  </div>
+
+  <main class="page-content">
+    <section class="tab-panel" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis">
+      <div class="analysis-layout">
+        <aside class="settings-panel" aria-label="Analysis settings">
+          <h1 class="section-title">Settings</h1>
+          <div class="form-field">
+            <label for="site-select">Landing site</label>
+            <select id="site-select" name="site"></select>
+            <p class="field-note">Longitude is East-positive.</p>
+            <p class="field-note">Representative point, not an official landing site.</p>
+            <p id="site-coordinate-note" class="field-note"></p>
+          </div>
+          <div class="form-field">
+            <label for="start-date">Start date</label>
+            <input id="start-date" name="start-date" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" title="Enter date as YYYY-MM-DD">
+          </div>
+          <div class="form-field">
+            <label for="end-date">End date</label>
+            <input id="end-date" name="end-date" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" title="Enter date as YYYY-MM-DD">
+          </div>
+          <button class="button button-primary analyze-button" id="analyze-button" type="button">Analyze</button>
+
+          <details class="score-weights">
+            <summary>Score weights</summary>
+            <div class="weight-fields">
+              <div class="form-field">
+                <label for="sun-weight">Sun weight <output id="sun-weight-value" for="sun-weight">60%</output></label>
+                <input id="sun-weight" type="range" min="0" max="100" step="5" value="60">
+              </div>
+              <div class="form-field">
+                <label for="earth-weight">Earth weight <output id="earth-weight-value" for="earth-weight">40%</output></label>
+                <input id="earth-weight" type="range" min="0" max="100" step="5" value="40">
+              </div>
+            </div>
+          </details>
+        </aside>
+
+        <div class="analysis-content">
+          <div id="analysis-empty" class="empty-state" hidden>Select a landing site and date range, then analyze.</div>
+          <div id="analysis-results" hidden>
+            <div class="analysis-heading">
+              <h2 id="analysis-site-title"></h2>
+              <p id="window-label" class="secondary-text"></p>
+            </div>
+
+            <section class="key-metrics" aria-label="Key analysis metrics">
+              <div class="key-metric">
+                <span class="metric-label">Score</span>
+                <strong class="metric-value" id="score-value">--</strong>
+              </div>
+              <div class="key-metric">
+                <span class="metric-label">Sun visible</span>
+                <strong class="metric-value" id="sun-percent">--</strong>
+              </div>
+              <div class="key-metric">
+                <span class="metric-label">Earth visible</span>
+                <strong class="metric-value" id="earth-percent">--</strong>
+              </div>
+              <div class="key-metric">
+                <span class="metric-label">Longest blackout</span>
+                <strong class="metric-value" id="blackout-value">--</strong>
+              </div>
+            </section>
+
+            <section class="plot-section" aria-labelledby="sky-heading">
+              <div class="section-heading">
+                <h2 id="sky-heading">Polar sky plot</h2>
+                <div class="sky-tools">
+                  <span id="sky-time" class="secondary-text"></span>
+                  <span id="sky-position-label" class="sky-position-label"></span>
+                  <label class="zoom-control" for="sky-zoom"><input id="sky-zoom" type="checkbox" checked> Zoom 0–10°</label>
+                </div>
+              </div>
+              <canvas id="sky-canvas" aria-label="Polar sky plot of Sun and Earth azimuth and elevation, with horizon profile"></canvas>
+              <div class="sky-legend" aria-label="Polar sky plot legend">
+                <span><i class="legend-line sun-line" aria-hidden="true"></i>Sun path</span>
+                <span><i class="legend-line earth-line" aria-hidden="true"></i>Earth path</span>
+                <span><i class="legend-line horizon-line" aria-hidden="true"></i>Horizon</span>
+              </div>
+              <div class="time-controls">
+                <button class="button button-outline" id="play-button" type="button" aria-label="Play time animation">Play</button>
+                <label class="visually-hidden" for="time-slider">Selected time in analysis period</label>
+                <input id="time-slider" type="range" min="0" max="0" value="0">
+                <span id="selected-time" class="time-output">-- UT</span>
+              </div>
+            </section>
+
+            <section class="timeline-section" aria-labelledby="timeline-heading">
+              <div class="section-heading">
+                <h2 id="timeline-heading">Visibility timeline</h2>
+              </div>
+              <canvas id="timeline-canvas" aria-label="Timeline showing Sun and Earth visibility and blackout periods"></canvas>
+              <div id="timeline-tooltip" class="timeline-tooltip" role="status" hidden></div>
+              <div class="timeline-legend" aria-label="Visibility timeline legend">
+                <span><i class="timeline-swatch both-swatch" aria-hidden="true"></i>Sun + Earth</span>
+                <span><i class="timeline-swatch one-swatch" aria-hidden="true"></i>One only</span>
+                <span><i class="timeline-swatch none-swatch" aria-hidden="true"></i>None</span>
+              </div>
+            </section>
+
+            <details class="more-details">
+              <summary>More details</summary>
+              <dl class="details-grid">
+                <div><dt>Longest darkness</dt><dd id="darkness-value">--</dd></div>
+                <div><dt>Longest communication outage</dt><dd id="outage-value">--</dd></div>
+                <div><dt>Time until next sunset</dt><dd id="sunset-value">--</dd></div>
+                <div><dt>Time until next Earthset</dt><dd id="earthset-value">--</dd></div>
+                <div><dt>Current Sun elevation</dt><dd id="current-sun-elevation">--</dd></div>
+                <div><dt>Mean Sun elevation</dt><dd id="mean-sun-elevation">--</dd></div>
+                <div><dt>Maximum Sun elevation</dt><dd id="max-sun-elevation">--</dd></div>
+              </dl>
+            </details>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+      <h1 class="page-title">Compare sites</h1>
+      <section class="compare-controls" aria-label="Comparison settings">
+        <fieldset class="site-options">
+          <legend>Landing sites</legend>
+          <div id="compare-sites" class="site-checkboxes"></div>
+        </fieldset>
+        <div class="compare-date-fields">
+          <div class="form-field">
+            <label for="compare-start">Start date</label>
+            <input id="compare-start" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" title="Enter date as YYYY-MM-DD">
+          </div>
+          <div class="form-field">
+            <label for="compare-end">End date</label>
+            <input id="compare-end" type="text" inputmode="numeric" placeholder="YYYY-MM-DD" pattern="[0-9]{4}-[0-9]{2}-[0-9]{2}" title="Enter date as YYYY-MM-DD">
+          </div>
+          <button class="button button-primary" id="compare-button" type="button">Compare</button>
+        </div>
+      </section>
+      <p class="compare-note">Flat horizon: Sun % is an upper bound.</p>
+      <p id="compare-error" class="inline-error" role="alert" hidden></p>
+      <div id="compare-results" hidden>
+        <div class="table-wrap">
+          <table>
+            <caption id="compare-window-label"></caption>
+            <thead>
+              <tr>
+                <th scope="col">Rank</th>
+                <th scope="col">Site</th>
+                <th scope="col">Sun visible</th>
+                <th scope="col">Earth visible</th>
+                <th scope="col">Longest darkness</th>
+                <th scope="col">Longest outage</th>
+                <th scope="col">Score</th>
+              </tr>
+            </thead>
+            <tbody id="compare-table-body"></tbody>
+          </table>
+        </div>
+        <section class="compare-chart-section" aria-labelledby="compare-chart-heading">
+          <h2 id="compare-chart-heading">Site metrics</h2>
+          <canvas id="compare-canvas" aria-label="Bar chart comparing Sun visibility, Earth visibility, and score for selected sites"></canvas>
+          <div class="chart-legend">
+            <span><i class="legend-line sun-line" aria-hidden="true"></i>Sun</span>
+            <span><i class="legend-line earth-line" aria-hidden="true"></i>Earth</span>
+            <span><i class="legend-line score-line" aria-hidden="true"></i>Score (gray; weighted)</span>
+          </div>
+        </section>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-validation" role="tabpanel" aria-labelledby="tab-validation" hidden>
+      <h1 class="page-title">Validation</h1>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col">Site</th>
+              <th scope="col">Metric</th>
+              <th scope="col">Computed</th>
+              <th scope="col">Published</th>
+              <th scope="col">Difference</th>
+              <th scope="col">Source</th>
+            </tr>
+          </thead>
+          <tbody id="validation-table-body"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="tab-panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+      <h1 class="page-title">About</h1>
+      <div class="about-content">
+        <section>
+          <h2>Method</h2>
+          <p>Visibility is evaluated hourly by comparing target elevation with the local horizon. The score is the weighted mean of Sun and Earth visibility. Blackout is when neither target is visible.</p>
+        </section>
+        <section>
+          <h2>Assumptions</h2>
+          <p>Sunlight supports power estimates; Earth visibility supports direct communications. The south pole is difficult because the Sun stays low, shadows can be long, and Earth is visible only during part of the lunar cycle. Coordinates use East-positive longitude and time values use UT.</p>
+        </section>
+        <section>
+          <h2>Limits</h2>
+          <p>A flat horizon is used when terrain data is absent. Site altitude is simplified to 0 km above the ellipsoid unless specified. The Sun is a point source; atmosphere and refraction are not modeled.</p>
+        </section>
+        <section>
+          <h2>Data credits</h2>
+          <p>NASA JPL Horizons (DE440/DE441 ephemerides), LOLA, Moon Trek, and LROC Quickmap.</p>
+        </section>
+        <section>
+          <h2>AI use</h2>
+          <p>Developed with AI assistance (Claude). Idea and design by the team.</p>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
