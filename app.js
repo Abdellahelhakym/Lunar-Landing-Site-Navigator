@@ -740,7 +740,7 @@ function renderValidation() {
   const horizonsRows = state.validation.horizons_check;
   const message = $('#validation-data-message');
   if (!state.validationLoaded) {
-    message.textContent = 'Validation data file unavailable. Add verified Horizons web results to data/validation.json. The built-in published context is shown below.';
+    message.textContent = 'Validation data file unavailable. Add verified JPL Horizons API results to data/validation.json. The built-in published context is shown below.';
     message.hidden = false;
   } else if (!horizonsRows.length) {
     message.textContent = 'No verified Horizons comparison rows are available. Add actual web-interface values to data/validation.json; no sample values are shown.';
