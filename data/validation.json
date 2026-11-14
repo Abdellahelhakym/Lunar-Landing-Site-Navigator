@@ -1,0 +1,49 @@
+{
+  "horizons_check": [
+    {
+      "site": "haworth",
+      "target": "sun",
+      "t": "2026-12-06T04:00",
+      "computed_az": 222.316,
+      "computed_el": -0.435,
+      "horizons_az": 222.315586,
+      "horizons_el": -0.435007,
+      "source": "NASA JPL Horizons API (UT, airless)",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api"
+    },
+    {
+      "site": "haworth",
+      "target": "earth",
+      "t": "2026-12-06T04:00",
+      "computed_az": 10.248,
+      "computed_el": -4.205,
+      "horizons_az": 10.247593,
+      "horizons_el": -4.205085,
+      "source": "NASA JPL Horizons API (UT, airless)",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api"
+    },
+    {
+      "site": "malapert",
+      "target": "sun",
+      "t": "2026-11-20T00:00",
+      "computed_az": 53.751,
+      "computed_el": 3.915,
+      "horizons_az": 53.750632,
+      "horizons_el": 3.914852,
+      "source": "NASA JPL Horizons API (UT, airless)",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api"
+    },
+    {
+      "site": "malapert",
+      "target": "earth",
+      "t": "2026-11-20T00:00",
+      "computed_az": 352.714,
+      "computed_el": 7.141,
+      "horizons_az": 352.713544,
+      "horizons_el": 7.141321,
+      "source": "NASA JPL Horizons API (UT, airless)",
+      "url": "https://ssd.jpl.nasa.gov/api/horizons.api"
+    }
+  ],
+  "published_context": []
+}

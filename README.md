@@ -57,4 +57,4 @@ For a first run, temporarily set `STOP_TIME` to `2026-11-18`, run the command, a
 - Validation table and an About page with assumptions, limits, and data credits.
 - Responsive dark theme, keyboard-operable controls, and text labels alongside timeline colors.
 
-Reference credits include NASA JPL Horizons (DE440/DE441), LOLA, Moon Trek, and LROC Quickmap. The app does not include NASA logos or copied map imagery.
+Ephemerides are sourced from NASA JPL Horizons (DE440/DE441), and the IAU Gazetteer is used for site context. The app does not use LOLA, Moon Trek, or LROC Quickmap data, and includes no NASA logos or copied map imagery.

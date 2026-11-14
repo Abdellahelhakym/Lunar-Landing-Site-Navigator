@@ -7,7 +7,8 @@ const state = {
   sites: [],
   ephemeris: {},
   horizons: {},
-  validation: [],
+  validation: { horizons_check: [], published_context: [] },
+  validationLoaded: false,
   activeSite: null,
   activeSamples: [],
   activeHorizon: Array(360).fill(0),
@@ -118,7 +119,14 @@ async function loadData() {
     : {};
   if (horizonResult.status === 'rejected') dataWarnings.push('Terrain profile file unavailable. A flat horizon will be used unless site terrain data is provided.');
 
-  state.validation = validationResult.status === 'fulfilled' && Array.isArray(validationResult.value) ? validationResult.value : [];
+  const validationData = validationResult.status === 'fulfilled' ? validationResult.value : null;
+  state.validationLoaded = Boolean(validationData && typeof validationData === 'object' && !Array.isArray(validationData));
+  state.validation = state.validationLoaded
+    ? {
+      horizons_check: Array.isArray(validationData.horizons_check) ? validationData.horizons_check : [],
+      published_context: Array.isArray(validationData.published_context) ? validationData.published_context : []
+    }
+    : { horizons_check: [], published_context: [] };
   if (validationResult.status === 'rejected') {
     dataWarnings.push('Optional validation data could not be loaded. The Validation tab will explain how to add it.');
   }
@@ -721,26 +729,69 @@ function compareRanges() {
 }
 
 function renderValidation() {
-  const hasProjectData = state.validation.length > 0;
-  const rows = hasProjectData ? state.validation : [{
-    site: state.activeSite ? `${state.activeSite.name} (selected window)` : 'Selected site',
-    metric: 'Sun illumination (%)',
-    computed: state.currentMetrics ? state.currentMetrics.sunPercent : null,
-    published: 88.0,
-    source: 'Gläser et al. (2018), Shackleton–de Gerlache ridge; 88.0% published maximum average for a 2 m lander case. Context only; not like-for-like.',
-    url: 'https://ntrs.nasa.gov/citations/20170007365'
-  }];
-  $('#validation-table-body').innerHTML = rows.map((row) => {
-    const computed = row.computed === null || row.computed === '' ? NaN : Number(row.computed);
-    const published = row.published === null || row.published === '' ? NaN : Number(row.published);
-    const difference = Number.isFinite(computed) && Number.isFinite(published) ? computed - published : null;
-    const sourceText = escapeHtml(row.source ?? '—');
-    const sourceCell = row.url && /^https:\/\//.test(row.url)
-      ? `<a href="${escapeHtml(row.url)}" target="_blank" rel="noopener noreferrer">${sourceText}</a>`
+  const numericValue = (value) => value === null || value === '' || !Number.isFinite(Number(value)) ? null : Number(value);
+  const sourceCell = (source, url) => {
+    const sourceText = escapeHtml(source || '—');
+    return url && /^https:\/\//.test(url)
+      ? `<a href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">${sourceText}</a>`
       : sourceText;
-    return `<tr><td>${escapeHtml(row.site ?? '—')}</td><td>${escapeHtml(row.metric ?? '—')}</td>
-      <td>${Number.isFinite(computed) ? computed.toFixed(2) : 'Not available'}</td><td>${Number.isFinite(published) ? published.toFixed(2) : '—'}</td>
-      <td>${difference === null ? '—' : `${difference > 0 ? '+' : ''}${difference.toFixed(2)}`}</td><td>${sourceCell}</td></tr>`;
+  };
+  const siteName = (siteId) => state.sites.find((site) => site.id === siteId)?.name || siteId || '—';
+  const horizonsRows = state.validation.horizons_check;
+  const message = $('#validation-data-message');
+  if (!state.validationLoaded) {
+    message.textContent = 'Validation data file unavailable. Add verified Horizons web results to data/validation.json. The built-in published context is shown below.';
+    message.hidden = false;
+  } else if (!horizonsRows.length) {
+    message.textContent = 'No verified Horizons comparison rows are available. Add actual web-interface values to data/validation.json; no sample values are shown.';
+    message.hidden = false;
+  } else {
+    message.hidden = true;
+  }
+  $('#validation-horizons-body').innerHTML = horizonsRows.map((row) => {
+    const computedAz = numericValue(row.computed_az);
+    const computedEl = numericValue(row.computed_el);
+    const horizonsAz = numericValue(row.horizons_az);
+    const horizonsEl = numericValue(row.horizons_el);
+    const valuesAvailable = [computedAz, computedEl, horizonsAz, horizonsEl].every(Number.isFinite);
+    const differenceAz = valuesAvailable ? ((computedAz - horizonsAz + 540) % 360) - 180 : null;
+    const differenceEl = valuesAvailable ? computedEl - horizonsEl : null;
+    const status = valuesAvailable && Math.abs(differenceAz) < 0.05 && Math.abs(differenceEl) < 0.05 ? 'OK' : 'Check';
+    const time = String(row.t || '—').replace('T', ' ');
+    const pair = (azimuth, elevation) => azimuth === null || elevation === null
+      ? 'Not available'
+      : `${azimuth.toFixed(3)}° / ${elevation.toFixed(3)}°`;
+    const difference = valuesAvailable
+      ? `Az ${differenceAz >= 0 ? '+' : ''}${differenceAz.toFixed(3)}°; El ${differenceEl >= 0 ? '+' : ''}${differenceEl.toFixed(3)}°`
+      : 'Not available';
+    return `<tr>
+      <td>${escapeHtml(siteName(row.site))}</td><td>${escapeHtml(String(row.target || '—').toUpperCase())}</td>
+      <td>${escapeHtml(time === '—' ? time : `${time} UT`)}</td>
+      <td>${pair(computedAz, computedEl)}</td><td>${pair(horizonsAz, horizonsEl)}</td>
+      <td>${difference}</td><td>${sourceCell(row.source || 'JPL Horizons web interface', row.url)}</td>
+      <td><span class="validation-status">${status}</span></td></tr>`;
+  }).join('');
+
+  const publishedRows = state.validation.published_context.length
+    ? state.validation.published_context
+    : [{
+      site: state.activeSite ? `${state.activeSite.name} (selected window)` : 'Selected site/window',
+      metric: 'Sun illumination (%)',
+      computed: state.currentMetrics ? state.currentMetrics.sunPercent : null,
+      reference: 88.0,
+      source: 'Gläser et al. (2018), south-polar ridge between Shackleton and de Gerlache; 2 m lander case.',
+      url: 'https://ntrs.nasa.gov/citations/20170007365',
+      note: 'Published value uses LOLA terrain and a 2 m lander height. This tool uses a flat horizon, so it overestimates illumination.'
+    }];
+  $('#validation-published-body').innerHTML = publishedRows.map((row) => {
+    const computed = numericValue(row.computed);
+    const reference = numericValue(row.reference);
+    return `<tr>
+      <td>${escapeHtml(siteName(row.site))}</td><td>${escapeHtml(row.metric || '—')}</td>
+      <td>${computed === null ? 'Not available' : computed.toFixed(2)}</td>
+      <td>${reference === null ? '—' : reference.toFixed(2)}</td>
+      <td>n/a (not comparable)</td><td>${sourceCell(row.source, row.url)}</td>
+      <td>${escapeHtml(row.note || 'Not comparable: published terrain and lander assumptions differ.')}</td></tr>`;
   }).join('');
 }
 
