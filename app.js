@@ -286,16 +286,57 @@ function currentSunWeight() {
   return Number($('#sun-weight').value) / 100;
 }
 
+function setupWelcome() {
+  const welcome = $('#welcome-screen');
+  const startButton = $('#welcome-start');
+  const dismiss = () => {
+    if (welcome.classList.contains('is-leaving')) return;
+    const application = $('#application');
+    application.removeAttribute('inert');
+    application.removeAttribute('aria-hidden');
+    welcome.classList.add('is-leaving');
+    welcome.setAttribute('aria-hidden', 'true');
+    $('.tab-button.active')?.focus();
+    const finish = () => {
+      if (welcome.hidden) return;
+      welcome.hidden = true;
+    };
+    welcome.addEventListener('transitionend', (event) => {
+      if (event.target === welcome) finish();
+    }, { once: true });
+    window.setTimeout(finish, 450);
+  };
+  startButton.addEventListener('click', dismiss);
+  welcome.addEventListener('keydown', (event) => {
+    const activatingStart = event.target === startButton && ['Enter', ' '].includes(event.key);
+    if (event.key === 'Escape' || activatingStart) {
+      event.preventDefault();
+      dismiss();
+    }
+  });
+  startButton.focus();
+}
+
 function setHorizonWarning(horizon) {
   const warning = $('#horizon-warning');
   if (horizon.approximate) {
-    warning.textContent = 'Flat Horizon Approximation – Terrain data unavailable. Sun visibility is an upper bound. All times in UT.';
+    warning.textContent = 'Flat horizon on (terrain unavailable; upper bound). All times UT.';
   } else if (horizon.disabled) {
-    warning.textContent = 'Flat Horizon Approximation – Terrain model disabled. Sun visibility is an upper bound. All times in UT.';
+    warning.textContent = 'Flat horizon on (upper bound). All times UT.';
   } else {
-    warning.textContent = 'NASA LOLA Terrain Model: Active. Geometric terrain obstruction only; vertical units are unconfirmed and this is not a mission-feasibility prediction. All times in UT.';
+    warning.textContent = 'LOLA terrain on (preliminary). All times UT.';
   }
   warning.hidden = false;
+}
+
+function verdictForMetrics(metrics) {
+  const sunAssessment = metrics.sunPercent === 0
+    ? 'no Sun visibility'
+    : metrics.sunPercent < 50 ? 'limited Sun visibility' : 'frequent Sun visibility';
+  const earthAssessment = metrics.earthPercent === 0
+    ? 'no direct Earth visibility'
+    : metrics.earthPercent < 50 ? 'limited direct Earth visibility' : 'frequent direct Earth visibility';
+  return `Verdict: ${sunAssessment}; ${earthAssessment} in this period.`;
 }
 
 function updateTerrainControls() {
@@ -309,11 +350,17 @@ function updateTerrainControls() {
     ? 'Terrain: LOLA DEM'
     : 'Flat horizon (upper bound)';
   $('#sky-horizon-legend').textContent = enabled ? 'LOLA terrain horizon' : 'Flat horizon (0°)';
+  $('#sky-legend-note').textContent = enabled
+    ? 'Gray = blocked by terrain. Yellow = visible Sun; dashed blue = visible Earth. All times UT.'
+    : `Gray = sky below flat 0° horizon${available ? '' : ' (terrain unavailable)'}. Yellow = visible Sun; dashed blue = visible Earth. All times UT.`;
+  $('#how-to-read-horizon').textContent = enabled
+    ? 'Gray shading marks directions blocked by the LOLA terrain horizon.'
+    : `Gray shading marks sky below a flat 0° horizon${available ? '; the terrain profile is switched off.' : ' because terrain data is unavailable.'}`;
   $('#analysis-terrain-impact').hidden = !available;
   if (available && state.activeSamples.length) {
     const flat = calculateMetrics(state.activeSamples, Array(360).fill(0), currentSunWeight());
     const terrain = calculateMetrics(state.activeSamples, state.activeTerrainHorizon, currentSunWeight());
-    $('#analysis-terrain-impact').textContent = `Sun visibility — Flat horizon: ${flat.sunPercent.toFixed(1)}% → With terrain: ${terrain.sunPercent.toFixed(1)}%. Earth visibility — Flat horizon: ${flat.earthPercent.toFixed(1)}% → With terrain: ${terrain.earthPercent.toFixed(1)}%.`;
+    $('#analysis-terrain-impact').textContent = `Sun (flat → LOLA): ${flat.sunPercent.toFixed(1)}% → ${terrain.sunPercent.toFixed(1)}%\nEarth (flat → LOLA): ${flat.earthPercent.toFixed(1)}% → ${terrain.earthPercent.toFixed(1)}%`;
   }
 }
 
@@ -399,6 +446,7 @@ function renderAnalysis() {
   $('#analysis-results').hidden = false;
   $('#analysis-empty').hidden = true;
   $('#analysis-site-title').textContent = state.activeSite.name;
+  $('#analysis-verdict').textContent = verdictForMetrics(metrics);
   $('#sky-canvas').setAttribute('aria-label', state.useTerrain && state.activeTerrainHorizon
     ? 'Polar sky plot with the LOLA terrain horizon, Sun and Earth paths, and selected positions'
     : 'Polar sky plot with a flat zero-degree horizon, Sun and Earth paths, and selected positions');
@@ -903,6 +951,12 @@ function setupEvents() {
     state.useTerrain = !state.useTerrain;
     applyTerrainMode();
   });
+  $('#how-to-read-button').addEventListener('click', (event) => {
+    const button = event.currentTarget;
+    const expanded = button.getAttribute('aria-expanded') === 'true';
+    button.setAttribute('aria-expanded', String(!expanded));
+    $('#how-to-read-content').hidden = expanded;
+  });
   $('#sun-weight').addEventListener('input', () => updateWeights('#sun-weight'));
   $('#earth-weight').addEventListener('input', () => updateWeights('#earth-weight'));
   $('#sky-zoom').addEventListener('change', (event) => {
@@ -977,6 +1031,7 @@ function setupEvents() {
 }
 
 async function initialize() {
+  setupWelcome();
   try {
     await loadData();
     fillSiteControls();

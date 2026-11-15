@@ -161,3 +161,14 @@ test('terrain profiles change visibility metrics while flat fallback remains an 
   assert.ok(metrics.terrainSun < metrics.flatSun);
   assert.ok(metrics.terrainEarth <= metrics.flatEarth);
 });
+
+test('plain-language verdict reports visibility without claiming power or link quality', async () => {
+  const app = await fs.readFile(path.join(ROOT, 'app.js'), 'utf8');
+  const context = vm.createContext({});
+  vm.runInContext(app, context, { filename: 'app.js' });
+  const verdict = vm.runInContext(
+    `verdictForMetrics({ sunPercent: 34.3, earthPercent: 0 })`,
+    context
+  );
+  assert.equal(verdict, 'Verdict: limited Sun visibility; no direct Earth visibility in this period.');
+});

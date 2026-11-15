@@ -10,6 +10,22 @@
   <script src="app.js" defer></script>
 </head>
 <body>
+  <section class="welcome-screen" id="welcome-screen" role="dialog" aria-modal="true" aria-labelledby="welcome-heading" aria-describedby="welcome-description">
+    <div class="welcome-card">
+      <p class="welcome-eyebrow">Lunar south pole · Mission planning</p>
+      <h1 id="welcome-heading">Welcome to the Lunar Landing Site Navigator</h1>
+      <p id="welcome-description" class="welcome-description">Explore how local terrain and landing dates affect sunlight and direct-to-Earth visibility at candidate lunar sites.</p>
+      <ul class="welcome-highlights" aria-label="What you can do">
+        <li>Compare sunlight and Earth visibility</li>
+        <li>Explore the sky and terrain horizon</li>
+        <li>Review preliminary planning indicators</li>
+      </ul>
+      <button class="button button-primary welcome-start" id="welcome-start" type="button">Explore the navigator</button>
+      <p class="welcome-caveat">Geometric visibility aid only — not a mission-feasibility assessment.</p>
+    </div>
+  </section>
+
+  <div id="application" inert aria-hidden="true">
   <header class="topbar">
     <div class="topbar-inner">
       <div class="project-name">Lunar Landing Site Navigator</div>
@@ -78,6 +94,7 @@
               <p id="window-label" class="secondary-text"></p>
             </div>
 
+            <p id="analysis-verdict" class="analysis-verdict" role="status" aria-live="polite"></p>
             <section class="key-metrics" aria-label="Key analysis metrics">
               <div class="key-metric">
                 <div class="metric-label-row">
@@ -141,6 +158,14 @@
                   <label class="zoom-control" for="sky-zoom"><input id="sky-zoom" type="checkbox" checked> Zoom 0–10°</label>
                 </div>
               </div>
+              <div class="sky-help">
+                <button class="button button-outline sky-help-button" id="how-to-read-button" type="button" aria-expanded="false" aria-controls="how-to-read-content">How to read this</button>
+                <div class="how-to-read-content" id="how-to-read-content" hidden>
+                  <p id="how-to-read-horizon">Gray shading marks directions blocked by the active terrain horizon.</p>
+                  <p>The yellow solid path is the visible Sun and the dashed blue path is the visible Earth; the center is the zenith, and azimuth runs clockwise from north.</p>
+                  <p>Visibility is geometric and sampled hourly, not an estimate of usable power or link quality; all times are UT.</p>
+                </div>
+              </div>
               <canvas id="sky-canvas" role="img" aria-labelledby="sky-heading" aria-describedby="sky-summary"></canvas>
               <p id="sky-summary" class="visually-hidden">Azimuth is measured clockwise from north. Concentric circles show elevation above the horizon. Solid gold and dashed blue paths show visible hourly Sun and Earth positions. The gray region marks terrain below the horizon profile; colored dots mark the selected time.</p>
               <div class="sky-legend" aria-label="Polar sky plot legend">
@@ -150,7 +175,7 @@
                 <span><i class="legend-dot sun-dot" aria-hidden="true"></i>Sun at selected time</span>
                 <span><i class="legend-dot earth-dot" aria-hidden="true"></i>Earth at selected time</span>
               </div>
-              <p class="sky-legend-note">Azimuth runs clockwise from N; concentric rings indicate elevation. Paths show visible hourly positions. Dots show the selected time.</p>
+              <p class="sky-legend-note" id="sky-legend-note">Gray = blocked by terrain. Yellow = visible Sun; dashed blue = visible Earth. All times UT.</p>
               <div class="time-controls">
                 <button class="button button-outline" id="play-button" type="button" aria-label="Play time animation">Play</button>
                 <label class="visually-hidden" for="time-slider">Selected time in analysis period</label>
@@ -363,5 +388,6 @@
       </div>
     </section>
   </main>
+  </div>
 </body>
 </html>

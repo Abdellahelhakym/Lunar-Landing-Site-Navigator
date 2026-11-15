@@ -5,7 +5,7 @@
 
 **Lunar Landing Site Navigator** est une application web statique d'aide à la comparaison de points représentatifs près du pôle Sud lunaire. Elle estime, pour une période choisie, la durée pendant laquelle le Soleil (source d'énergie) et la Terre (communication directe) se trouvent au-dessus de l'horizon local. Elle signale également les périodes de nuit, de perte de visibilité de la Terre et de perte simultanée des deux.
 
-L'interface propose quatre sections : **Analysis** pour examiner un site et une période, **Compare** pour classer plusieurs sites, **Validation** pour consulter les contrôles de données, et **About** pour les hypothèses, limites et sources.
+À l'ouverture, un écran d'accueil présente le navigateur et ses limites; le bouton « Explore the navigator » ouvre l'application. L'interface propose ensuite quatre sections : **Analysis** pour examiner un site et une période, **Compare** pour classer plusieurs sites, **Validation** pour consulter les contrôles de données, et **About** pour les hypothèses, limites et sources.
 
 Le projet côté navigateur utilise HTML, CSS, JavaScript sans framework et Canvas. Il n'y a pas de compilation ni de serveur applicatif. Les positions célestes sont pré-calculées et enregistrées en JSON : le navigateur ne contacte pas NASA/JPL Horizons. Un serveur HTTP statique est toutefois nécessaire pour charger ces fichiers JSON avec `fetch` (par exemple l'extension Live Server de VS Code). Ouvrir directement `index.html` avec une adresse `file://` empêche généralement leur chargement.
 
@@ -14,7 +14,7 @@ Le projet côté navigateur utilise HTML, CSS, JavaScript sans framework et Canv
 1. Au démarrage, `app.js` charge les sites et les éphémérides depuis `data/`, puis initialise les contrôles de date et les graphiques.
 2. L'utilisateur choisit un site et une période. Les échantillons horaires du Soleil et de la Terre sont associés par leur horodatage UTC; seuls ceux de la période sélectionnée sont analysés.
 3. Pour chaque échantillon, l'application compare l'élévation de l'astre à l'élévation du terrain dans sa direction. Dans Analysis, le bouton « Terrain on/off » bascule entre le profil LOLA disponible et l'horizon plat; les métriques et le diagramme sont recalculés. Elle transforme ces états visibles/invisibles en pourcentages, durées et score.
-4. Les résultats sont affichés sous forme de métriques, d'un diagramme polaire du ciel, d'une chronologie et, dans l'onglet Compare, d'un tableau classé et d'un graphique. Si le classement mélange des profils LOLA et des horizons plats, un avertissement précise que les scores ne sont pas directement comparables.
+4. Les résultats sont affichés sous forme de métriques, d'un verdict descriptif prudent, d'un diagramme polaire du ciel, d'une chronologie et, dans l'onglet Compare, d'un tableau classé et d'un graphique. Si le classement mélange des profils LOLA et des horizons plats, un avertissement précise que les scores ne sont pas directement comparables.
 
 ### Algorithmes et indicateurs
 
@@ -26,7 +26,7 @@ Le projet côté navigateur utilise HTML, CSS, JavaScript sans framework et Canv
 - **Comparaison** : le même calcul est exécuté pour chaque site sélectionné sur la même période; le classement est décroissant selon le score.
 - **Diagramme polaire** : l'azimut donne la direction (Nord en haut, Est à droite) et l'élévation donne la distance au centre. Le réglage de zoom montre soit les 0–10° au-dessus de l'horizon, soit une plage plus large. Les trajectoires visibles du Soleil (trait doré continu) et de la Terre (trait bleu discontinu), le profil d'horizon et les positions à l'heure sélectionnée sont distingués dans la légende. La chronologie code les états « Soleil + Terre », « un seul visible » et « aucun visible ».
 
-Les métriques disposent d'infobulles accessibles au survol et au focus clavier. Les onglets se parcourent avec les flèches gauche/droite et les touches Début/Fin. La page About explique aussi pourquoi le pôle Sud lunaire pose des contraintes d'éclairage et de communication.
+Les métriques disposent d'infobulles accessibles au survol et au focus clavier. Le bouton « How to read this » explique le diagramme polaire en trois phrases. Les onglets se parcourent avec les flèches gauche/droite et les touches Début/Fin; l'écran d'accueil et les infobulles respectent le réglage de réduction des animations. La page About explique aussi pourquoi le pôle Sud lunaire pose des contraintes d'éclairage et de communication.
 
 Les durées sont calculées sur des échantillons horaires, et non sur une interpolation continue. Une période d'invisibilité qui commence ou finit au bord de la plage de dates est affichée avec `≥`, car sa durée complète peut se trouver en dehors de la période observée.
 
