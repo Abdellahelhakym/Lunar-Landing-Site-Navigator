@@ -12,6 +12,8 @@ const state = {
   activeSite: null,
   activeSamples: [],
   activeHorizon: Array(360).fill(0),
+  activeTerrainHorizon: null,
+  useTerrain: true,
   currentMetrics: null,
   selectedIndex: 0,
   compareMetrics: [],
@@ -286,10 +288,46 @@ function currentSunWeight() {
 
 function setHorizonWarning(horizon) {
   const warning = $('#horizon-warning');
-  warning.textContent = horizon.approximate
-    ? 'Flat Horizon Approximation – Terrain data unavailable. Sun visibility is an upper bound. All times in UT.'
-    : 'NASA LOLA Terrain Model: Active. Geometric terrain obstruction only; not a mission-feasibility prediction. All times in UT.';
+  if (horizon.approximate) {
+    warning.textContent = 'Flat Horizon Approximation – Terrain data unavailable. Sun visibility is an upper bound. All times in UT.';
+  } else if (horizon.disabled) {
+    warning.textContent = 'Flat Horizon Approximation – Terrain model disabled. Sun visibility is an upper bound. All times in UT.';
+  } else {
+    warning.textContent = 'NASA LOLA Terrain Model: Active. Geometric terrain obstruction only; vertical units are unconfirmed and this is not a mission-feasibility prediction. All times in UT.';
+  }
   warning.hidden = false;
+}
+
+function updateTerrainControls() {
+  const toggle = $('#terrain-toggle');
+  const available = Boolean(state.activeTerrainHorizon);
+  const enabled = available && state.useTerrain;
+  toggle.disabled = !available;
+  toggle.setAttribute('aria-pressed', String(enabled));
+  toggle.textContent = available ? `Terrain ${enabled ? 'on' : 'off'}` : 'Terrain unavailable';
+  $('#analysis-terrain-source').textContent = enabled
+    ? 'Terrain: LOLA DEM'
+    : 'Flat horizon (upper bound)';
+  $('#sky-horizon-legend').textContent = enabled ? 'LOLA terrain horizon' : 'Flat horizon (0°)';
+  $('#analysis-terrain-impact').hidden = !available;
+  if (available && state.activeSamples.length) {
+    const flat = calculateMetrics(state.activeSamples, Array(360).fill(0), currentSunWeight());
+    const terrain = calculateMetrics(state.activeSamples, state.activeTerrainHorizon, currentSunWeight());
+    $('#analysis-terrain-impact').textContent = `Sun visibility — Flat horizon: ${flat.sunPercent.toFixed(1)}% → With terrain: ${terrain.sunPercent.toFixed(1)}%. Earth visibility — Flat horizon: ${flat.earthPercent.toFixed(1)}% → With terrain: ${terrain.earthPercent.toFixed(1)}%.`;
+  }
+}
+
+function applyTerrainMode() {
+  const terrainActive = Boolean(state.activeTerrainHorizon) && state.useTerrain;
+  state.activeHorizon = terrainActive ? state.activeTerrainHorizon : Array(360).fill(0);
+  state.currentMetrics = calculateMetrics(state.activeSamples, state.activeHorizon, currentSunWeight());
+  state.selectedIndex = Math.min(state.selectedIndex, state.activeSamples.length - 1);
+  updateTerrainControls();
+  setHorizonWarning({
+    approximate: !state.activeTerrainHorizon,
+    disabled: Boolean(state.activeTerrainHorizon) && !state.useTerrain
+  });
+  renderAnalysis();
 }
 
 function fillSiteControls() {
@@ -343,15 +381,12 @@ function analyze() {
     if (!site) throw new Error('Select a landing site.');
     const horizon = horizonForSite(site.id);
     const samples = samplesForRange(site.id, $('#start-date').value, $('#end-date').value);
-    const metrics = calculateMetrics(samples, horizon.values, currentSunWeight());
     state.activeSite = site;
     state.activeSamples = samples;
-    state.activeHorizon = horizon.values;
-    state.currentMetrics = metrics;
+    state.activeTerrainHorizon = horizon.approximate ? null : horizon.values;
     state.selectedIndex = 0;
-    setHorizonWarning(horizon);
+    applyTerrainMode();
     $('#app-error').hidden = true;
-    renderAnalysis();
   } catch (error) {
     $('#app-error').textContent = error.message;
     $('#app-error').hidden = false;
@@ -364,6 +399,12 @@ function renderAnalysis() {
   $('#analysis-results').hidden = false;
   $('#analysis-empty').hidden = true;
   $('#analysis-site-title').textContent = state.activeSite.name;
+  $('#sky-canvas').setAttribute('aria-label', state.useTerrain && state.activeTerrainHorizon
+    ? 'Polar sky plot with the LOLA terrain horizon, Sun and Earth paths, and selected positions'
+    : 'Polar sky plot with a flat zero-degree horizon, Sun and Earth paths, and selected positions');
+  $('#sky-summary').textContent = state.useTerrain && state.activeTerrainHorizon
+    ? 'Azimuth is measured clockwise from north. Concentric circles show elevation above the horizon. Solid gold and dashed blue paths show visible hourly Sun and Earth positions. The gray region marks the LOLA terrain horizon profile; colored dots mark the selected time.'
+    : 'Azimuth is measured clockwise from north. Concentric circles show elevation above the horizon. Solid gold and dashed blue paths show visible hourly Sun and Earth positions. The gray region marks a flat zero-degree horizon; colored dots mark the selected time.';
   $('#window-label').textContent = `${isoDate(metrics.samples[0].timestamp)} — ${isoDate(metrics.samples[metrics.samples.length - 1].timestamp)} UT`;
   $('#score-value').textContent = Math.round(metrics.score);
   $('#sun-percent').textContent = `${metrics.sunPercent.toFixed(1)}%`;
@@ -382,6 +423,7 @@ function renderAnalysis() {
   drawCurrentTime();
   drawSkyPlot();
   drawTimeline();
+  updateTerrainControls();
   renderValidation();
 }
 
@@ -669,9 +711,16 @@ function compareSites() {
 
 function renderCompareResults(results) {
   const ranked = [...results].sort((a, b) => b.score - a.score);
+  const hasTerrain = results.some((item) => !item.terrainApproximate);
+  const hasFlat = results.some((item) => item.terrainApproximate);
+  const terrainWarning = $('#compare-terrain-warning');
+  terrainWarning.hidden = !(hasTerrain && hasFlat);
+  terrainWarning.textContent = hasTerrain && hasFlat
+    ? 'This ranking mixes LOLA terrain profiles with flat-horizon upper-bound estimates. Scores from the two terrain sources are not directly comparable.'
+    : '';
   $('#compare-table-body').innerHTML = ranked.map((item, index) => `
     <tr><td>${String(index + 1).padStart(2, '0')}</td><td>${escapeHtml(item.site.name)}</td>
-    <td>${item.terrainApproximate ? 'Flat approx.' : 'LOLA'}</td>
+    <td>${item.terrainApproximate ? 'Flat horizon (upper bound)' : 'Terrain: LOLA DEM'}</td>
     <td>${item.sunPercent.toFixed(1)}%</td><td>${item.earthPercent.toFixed(1)}%</td>
     <td>${formatPeriodRun(item.longestDarkness, item.sunVisible, 'None in this period')}</td><td>${formatPeriodRun(item.longestOutage, item.earthVisible)}</td><td><strong>${Math.round(item.score)}</strong></td></tr>`).join('');
   drawCompareChart(ranked);
@@ -738,7 +787,7 @@ function compareRanges() {
       <p>Sun illumination <strong>${metrics.sunPercent.toFixed(1)}%</strong> · Earth visibility <strong>${metrics.earthPercent.toFixed(1)}%</strong></p>
       <p>Longest darkness <strong>${formatDuration(metrics.longestDarkness)}</strong> · Longest outage <strong>${formatDuration(metrics.longestOutage)}</strong></p>
       <p>Weighted score <strong>${Math.round(metrics.score)} / 100</strong></p></article>`).join('');
-    const terrainLabel = horizon.approximate ? 'Flat Horizon Approximation – Terrain data unavailable' : 'NASA LOLA Terrain Model';
+    const terrainLabel = horizon.approximate ? 'Flat horizon (upper bound)' : 'Terrain: LOLA DEM';
     $('#range-results').innerHTML = `<p class="muted small" style="grid-column:1/-1">${escapeHtml(site.name)} · ${terrainLabel}</p>${results}`;
     $('#range-results').hidden = false;
   } catch (error) {
@@ -793,15 +842,27 @@ function renderValidation() {
 
   const publishedRows = state.validation.published_context.length
     ? state.validation.published_context
-    : [{
-      site: state.activeSite ? `${state.activeSite.name} (selected window)` : 'Selected site/window',
+    : (() => {
+      const shackleton = state.sites.find((site) => site.id === 'shackleton');
+      const terrain = horizonForSite('shackleton');
+      const from = $('#start-date')?.value;
+      const to = $('#end-date')?.value;
+      const samples = shackleton && !terrain.approximate && from && to
+        ? samplesForRange('shackleton', from, to)
+        : [];
+      const computed = samples.length
+        ? calculateMetrics(samples, terrain.values, currentSunWeight()).sunPercent
+        : null;
+      return [{
+      site: 'shackleton',
       metric: 'Sun illumination (%)',
-      computed: state.currentMetrics ? state.currentMetrics.sunPercent : null,
+      computed,
       reference: 88.0,
       source: 'Gläser et al. (2018), south-polar ridge between Shackleton and de Gerlache; 2 m lander case.',
       url: 'https://ntrs.nasa.gov/citations/20170007365',
-      note: 'Published value uses LOLA terrain and a 2 m lander height. This tool uses a flat horizon, so it overestimates illumination.'
+      note: 'Indicative context only: the published ridge, terrain model and 2 m observer height differ from this representative point and its DEM-pixel observer height. The DEM vertical unit is also unconfirmed.'
     }];
+    })();
   $('#validation-published-body').innerHTML = publishedRows.map((row) => {
     const computed = numericValue(row.computed);
     const reference = numericValue(row.reference);
@@ -836,6 +897,11 @@ function setupEvents() {
   $('#site-select').addEventListener('change', () => {
     updateSiteCoordinateNote();
     if (state.currentMetrics) analyze();
+  });
+  $('#terrain-toggle').addEventListener('click', () => {
+    if (!state.activeTerrainHorizon) return;
+    state.useTerrain = !state.useTerrain;
+    applyTerrainMode();
   });
   $('#sun-weight').addEventListener('input', () => updateWeights('#sun-weight'));
   $('#earth-weight').addEventListener('input', () => updateWeights('#earth-weight'));

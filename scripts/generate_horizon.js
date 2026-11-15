@@ -269,14 +269,14 @@ async function generateHorizon({ demPath = DEFAULT_DEM, sitesPath = DEFAULT_SITE
         source: 'NASA LOLA DEM',
         method: 'Terrain-based geometric horizon calculation',
         lunarRadiusM: LUNAR_RADIUS_M,
-        elevationUnits: 'meters (LOLA DEM product convention; not encoded in this GeoTIFF)',
+        elevationUnits: 'meters (assumed; not encoded or confirmed by this GeoTIFF)',
         maxDistanceM,
         sampleStepM,
         demWidth: image.getWidth(),
         demHeight: image.getHeight(),
         noDataValue,
         assumptions: [
-          'Spherical Moon with radius from the DEM GeoKeys; elevation values are treated as meters above that sphere.',
+          'Spherical Moon with radius from the DEM GeoKeys; elevation values are assumed to be meters above that sphere, but the unit is unconfirmed.',
           '360 one-degree azimuth rays use nearest DEM pixel centers at fixed surface-distance steps.',
           'The zero-degree local tangent horizon is retained as a minimum; terrain can raise, but not lower, it.',
           'A profile is unavailable if any requested sample is outside coverage or has NoData.'

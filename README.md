@@ -13,8 +13,8 @@ Le projet côté navigateur utilise HTML, CSS, JavaScript sans framework et Canv
 
 1. Au démarrage, `app.js` charge les sites et les éphémérides depuis `data/`, puis initialise les contrôles de date et les graphiques.
 2. L'utilisateur choisit un site et une période. Les échantillons horaires du Soleil et de la Terre sont associés par leur horodatage UTC; seuls ceux de la période sélectionnée sont analysés.
-3. Pour chaque échantillon, l'application compare l'élévation de l'astre à l'élévation du terrain dans sa direction. Elle transforme ensuite ces états visibles/invisibles en pourcentages, durées et score.
-4. Les résultats sont affichés sous forme de métriques, d'un diagramme polaire du ciel, d'une chronologie et, dans l'onglet Compare, d'un tableau classé et d'un graphique.
+3. Pour chaque échantillon, l'application compare l'élévation de l'astre à l'élévation du terrain dans sa direction. Dans Analysis, le bouton « Terrain on/off » bascule entre le profil LOLA disponible et l'horizon plat; les métriques et le diagramme sont recalculés. Elle transforme ces états visibles/invisibles en pourcentages, durées et score.
+4. Les résultats sont affichés sous forme de métriques, d'un diagramme polaire du ciel, d'une chronologie et, dans l'onglet Compare, d'un tableau classé et d'un graphique. Si le classement mélange des profils LOLA et des horizons plats, un avertissement précise que les scores ne sont pas directement comparables.
 
 ### Algorithmes et indicateurs
 
@@ -36,7 +36,11 @@ Les directions et élévations du Soleil et de la Terre proviennent de NASA JPL 
 
 Le script `scripts/generate_horizon.js` lit le GeoTIFF LOLA et écrit `data/horizon.json`. Le fichier fourni couvre Shackleton et le point représentatif Artemis; Malapert, Haworth et Nobile sont hors de la couverture de ce sous-ensemble. Les profils disponibles sont calculés sur 3 km, avec un pas de 25 m, pour 360 azimuts. Ces paramètres sont configurables. Le script lit les rangées du GeoTIFF à la demande; il ne charge pas le DEM complet en mémoire. Un profil est marqué indisponible si un échantillon requis sort de la couverture, contient NoData, ou si une direction n'a aucun échantillon. L'application conserve alors l'horizon plat et l'indique dans la bannière.
 
-Le calcul utilise les coordonnées géographiques et le rayon lunaire sphérique de 1 737 400 m encodé dans les GeoKeys. La courbure est prise en compte dans l'angle apparent du relief; les centres des pixels les plus proches sont échantillonnés le long de rayons géodésiques. L'horizon tangent local à 0° est conservé comme minimum, pour que le relief en contrebas ne rende pas visibles des astres sous l'horizon lunaire. Ce n'est pas un ray-tracing continu et les obstacles plus petits que le pas d'échantillonnage peuvent être manqués. Les valeurs d'altitude sont interprétées en mètres selon la convention des produits DEM LOLA, mais le GeoTIFF fourni n'encode pas explicitement son unité verticale : cette provenance doit être confirmée avant tout usage scientifique ou opérationnel. L'altitude `0 km` des éphémérides Horizons ne correspond pas nécessairement à l'altitude du pixel LOLA utilisé comme observateur.
+Le script lit le GeoTIFF en coordonnées géographiques longitude/latitude (degrés), d'après ses GeoKeys. Il n'interprète pas les degrés comme des mètres et calcule les distances sur une sphère de rayon 1 737 400 m. La courbure est prise en compte dans l'angle apparent du relief; les centres des pixels les plus proches sont échantillonnés le long de rayons géodésiques. Le nom de fichier contenant `EQ` ne suffit pas à établir une projection équirectangulaire; les GeoKeys inspectés décrivent un CRS géographique lunaire. L'horizon tangent local à 0° est conservé comme minimum, pour que le relief en contrebas ne rende pas visibles des astres sous l'horizon lunaire. Ce n'est pas un ray-tracing continu et les obstacles plus petits que le pas d'échantillonnage peuvent être manqués. Les altitudes sont supposées en mètres pour le calcul, mais cette unité n'est ni encodée par le GeoTIFF ni confirmée indépendamment; toute métrique terrain reste conditionnelle à cette hypothèse. L'altitude `0 km` des éphémérides Horizons ne correspond pas nécessairement à l'altitude du pixel LOLA utilisé comme observateur.
+
+Le fichier fourni provient de la couche Moon Trek **« LRO LOLA DEM 87.5 deg v4, S Pole »**. La date de téléchargement et la boîte de sélection/export du sous-ensemble ne sont pas consignées; il n'est donc pas possible de revendiquer une reproduction exacte de la découpe d'origine. Le nom `5mp` ne constitue pas à lui seul une confirmation de résolution au sol de 5 m : la résolution observée dans les coordonnées géographiques varie avec la latitude. L'application n'affiche donc pas une précision « LOLA 5 m ».
+
+Pour retrouver le GeoTIFF, ouvrir [NASA Moon Trek](https://trek.nasa.gov/moon/), sélectionner la couche exacte indiquée ci-dessus, puis exporter/télécharger une zone couvrant les profils des points Shackleton et Artemis, avec leurs environs jusqu'à 3 km. Enregistrer le fichier sous `data_raw/LRO_LOLA_DEM_SPole875_5mp_v04_EQ-subsetted.tif` pour utiliser les commandes ci-dessous. La boîte d'origine n'étant pas connue, une nouvelle découpe peut ne pas produire les mêmes profils. `data_raw/` et les fichiers `*.tif` sont ignorés par Git; si un TIFF a déjà été suivi dans un dépôt Git, l'ignorer ne le retire pas de l'index : depuis la racine du vrai dépôt, `git rm --cached -- "data_raw/LRO_LOLA_DEM_SPole875_5mp_v04_EQ-subsetted.tif"` le retire du suivi sans supprimer sa copie locale. Le site statique n'a pas besoin du TIFF à l'exécution : il charge `data/horizon.json`, qui contient les profils déjà générés.
 
 Les points sont représentatifs, pas des sites d'atterrissage officiels. Les coordonnées de certaines régions candidates sont approximatives. Le Soleil est considéré comme un point, et un pas horaire peut manquer des événements plus courts qu'une heure. Le modèle ne fournit ni prédiction complète de puissance, ni visibilité radio certifiée, ni faisabilité d'atterrissage. Les résultats sont un outil de comparaison préliminaire seulement.
 
@@ -49,7 +53,7 @@ L'onglet Validation compare certains échantillons arrondis aux valeurs de réf�
 | `README.md` | Documentation du projet : présentation, méthode, algorithmes, limites, sources et instructions d'exécution. |
 | `index.html` | Structure et contenu de l'interface : onglets, formulaires, indicateurs, tableaux et éléments Canvas. Charge `style.css` et `app.js`. |
 | `style.css` | Mise en forme, thème sombre, disposition adaptative, états visuels et règles d'accessibilité. |
-| `app.js` | Logique navigateur : chargement et contrôle des données, calculs de visibilité et de score, gestion des interactions, comparaison, validation et dessin des graphiques. |
+| `app.js` | Logique navigateur : chargement et contrôle des données, calculs de visibilité et de score, bascule de modèle terrain, gestion des interactions, comparaison, validation et dessin des graphiques. |
 | `data/sites.json` | Catalogue des points étudiés : identifiant, nom, longitude Est-positive, latitude, altitude simplifiée et notes sur les coordonnées. |
 | `data/ephemeris.json` | Éphémérides horaires du Soleil et de la Terre par site, calculées par Horizons et consommées par l'application. |
 | `data/horizon.json` | Profils d'horizon LOLA par site, avec statut explicite et paramètres de calcul; les sites indisponibles n'utilisent pas de profil fictif. |
@@ -57,6 +61,7 @@ L'onglet Validation compare certains échantillons arrondis aux valeurs de réf�
 | `scripts/fetch_horizons.js` | Script Node.js qui lit les sites, interroge l'API JPL Horizons pour le Soleil et la Terre, analyse les réponses, puis écrit les nouvelles éphémérides et conserve une sauvegarde. |
 | `scripts/generate_horizon.js` | Générateur Node.js des profils LOLA; vérifie la projection et la couverture, traite NoData et prend en compte la courbure lunaire. |
 | `scripts/generate_horizon.test.js` | Tests du DEM, de la couverture, des profils, des NoData, de la géométrie et du repli navigateur. |
+| `scripts/inspect_tif.mjs` | Inspection du GeoTIFF par lecture de rangées : géométrie, GeoKeys, NoData et plage des altitudes. |
 
 `data/horizon.json` est chargé comme un fichier statique, sans serveur Node.js en production; il est compatible avec GitHub Pages. L'application accepte le nouveau format `metadata` / `sites` ainsi que l'ancien format en tableaux indexés par identifiant de site. Un profil absent, invalide ou marqué indisponible entraîne l'utilisation de l'horizon plat et l'affichage de « Flat Horizon Approximation – Terrain data unavailable ».
 
@@ -82,9 +87,10 @@ Le script lit `data/sites.json`, effectue une requête pour le Soleil et une pou
 
 ## Générer et tester les profils LOLA
 
-Le DEM source doit se trouver dans `data_raw/LRO_LOLA_DEM_SPole875_5mp_v04_EQ-subsetted.tif`. Depuis la racine du projet :
+Pour régénérer les profils, le DEM source doit se trouver dans `data_raw/LRO_LOLA_DEM_SPole875_5mp_v04_EQ-subsetted.tif` (voir ci-dessus pour le retrouver; il n'est pas inclus dans le dépôt). Depuis la racine du projet :
 
 ```text
+node scripts/inspect_tif.mjs
 node scripts/generate_horizon.js
 npm test
 ```

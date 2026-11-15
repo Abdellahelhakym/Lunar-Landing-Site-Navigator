@@ -208,10 +208,40 @@ select:disabled, input:disabled { opacity: .65; }
 }
 
 .button:hover { border-color: var(--secondary); }
+.button:disabled { opacity: .6; cursor: not-allowed; }
 .button-primary { border-color: var(--accent); background: var(--accent); color: #0f141a; font-weight: 600; }
 .button-primary:hover { border-color: #80bdff; background: #80bdff; }
 .button-outline { border-color: var(--border); }
 .analyze-button { width: 100%; margin-top: 2px; }
+
+.terrain-controls {
+  display: grid;
+  justify-items: start;
+  gap: 8px;
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+}
+.terrain-source {
+  margin: 0;
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+}
+.terrain-impact {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 14px;
+}
+.terrain-warning {
+  margin: 16px 0 0;
+  padding: 12px 14px;
+  border-left: 4px solid var(--sun);
+  border-radius: 6px;
+  background: rgba(242, 193, 78, .12);
+  color: var(--text);
+  font-weight: 600;
+}
 
 .score-weights {
   margin-top: 20px;

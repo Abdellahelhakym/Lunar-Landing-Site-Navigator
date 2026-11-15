@@ -90,6 +90,8 @@ test('flat terrain stays near zero and an obstacle raises the horizon angle', as
   const obstacle = terrainAngleDegrees(1000, 1001, 25);
   assert.ok(Math.abs(flat) < 0.001);
   assert.ok(obstacle > flat);
+  const knownHillAngle = terrainAngleDegrees(0, 100, 1000);
+  assert.ok(Math.abs(knownHillAngle - 5.6943) < 0.001, `expected about 5.6943°, got ${knownHillAngle}°`);
   assert.ok(LUNAR_RADIUS_M > 1700000);
 
   const image = {
@@ -133,4 +135,29 @@ test('the browser calculation uses the documented flat fallback without LOLA dat
   `, context);
   assert.equal(legacy.approximate, false);
   assert.equal(legacy.values[0], 3);
+});
+
+test('terrain profiles change visibility metrics while flat fallback remains an upper bound', async () => {
+  const [app, sites, ephemeris, horizons] = await Promise.all([
+    fs.readFile(path.join(ROOT, 'app.js'), 'utf8'),
+    fs.readFile(path.join(ROOT, 'data', 'sites.json'), 'utf8'),
+    fs.readFile(path.join(ROOT, 'data', 'ephemeris.json'), 'utf8'),
+    fs.readFile(path.join(ROOT, 'data', 'horizon.json'), 'utf8')
+  ]);
+  const context = vm.createContext({});
+  vm.runInContext(app, context, { filename: 'app.js' });
+  const metrics = vm.runInContext(`
+    state.sites = ${sites};
+    state.ephemeris = ${ephemeris};
+    state.horizons = ${horizons};
+    const samples = samplesForRange('shackleton', '2026-11-15', '2026-12-14');
+    const flat = calculateMetrics(samples, Array(360).fill(0), 0.6);
+    const terrain = calculateMetrics(samples, horizonForSite('shackleton').values, 0.6);
+    ({ flatSun: flat.sunPercent, terrainSun: terrain.sunPercent,
+      flatEarth: flat.earthPercent, terrainEarth: terrain.earthPercent })
+  `, context);
+  assert.equal(metrics.flatSun, 100);
+  assert.equal(metrics.flatEarth, 42.5);
+  assert.ok(metrics.terrainSun < metrics.flatSun);
+  assert.ok(metrics.terrainEarth <= metrics.flatEarth);
 });

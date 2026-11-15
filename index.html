@@ -49,6 +49,11 @@
             <input id="end-date" name="end-date" type="date" title="Select an end date">
           </div>
           <button class="button button-primary analyze-button" id="analyze-button" type="button">Analyze</button>
+          <div class="terrain-controls">
+            <p id="analysis-terrain-source" class="terrain-source">Terrain source will be shown after analysis.</p>
+            <button class="button button-outline" id="terrain-toggle" type="button" aria-pressed="false" disabled>Terrain unavailable</button>
+            <p id="analysis-terrain-impact" class="terrain-impact" hidden></p>
+          </div>
 
           <details class="score-weights">
             <summary>Score weights</summary>
@@ -141,7 +146,7 @@
               <div class="sky-legend" aria-label="Polar sky plot legend">
                 <span><i class="legend-line sun-line" aria-hidden="true"></i>Visible Sun path</span>
                 <span><i class="legend-line earth-line" aria-hidden="true"></i>Visible Earth path</span>
-                <span><i class="legend-line horizon-line" aria-hidden="true"></i>Horizon profile</span>
+                <span><i class="legend-line horizon-line" aria-hidden="true"></i><span id="sky-horizon-legend">Horizon profile</span></span>
                 <span><i class="legend-dot sun-dot" aria-hidden="true"></i>Sun at selected time</span>
                 <span><i class="legend-dot earth-dot" aria-hidden="true"></i>Earth at selected time</span>
               </div>
@@ -219,6 +224,7 @@
       <p class="compare-note">Terrain source is shown for each site; flat-horizon results are approximate.</p>
       <p id="compare-error" class="inline-error" role="alert" hidden></p>
       <div id="compare-results" hidden>
+        <p id="compare-terrain-warning" class="terrain-warning" role="status" hidden></p>
         <div class="table-wrap validation-table-wrap">
           <table>
             <caption id="compare-window-label"></caption>
@@ -251,7 +257,7 @@
 
     <section class="tab-panel" id="panel-validation" role="tabpanel" aria-labelledby="tab-validation" tabindex="0" hidden>
       <h1 class="page-title">Validation</h1>
-      <p class="validation-intro">This page checks stored Sun and Earth positions against separate JPL Horizons API queries at the same site and time. Illumination percentages are shown against published studies for context only; the navigator uses geometric LOLA terrain profiles where available and a clearly labeled flat-horizon fallback elsewhere.</p>
+      <p class="validation-intro">This page checks stored Sun and Earth positions against separate JPL Horizons API queries at the same site and time. Shackleton illumination is recalculated with its terrain profile for the selected Analysis period; the comparison with Gläser et al. (2018) is indicative only because the site, terrain model and observer altitude differ.</p>
 
       <section class="validation-section" aria-labelledby="horizons-validation-heading">
         <h2 id="horizons-validation-heading">Data check (JPL Horizons)</h2>
@@ -297,7 +303,7 @@
 
       <section class="validation-section" aria-labelledby="validation-limits-heading">
         <h2 id="validation-limits-heading">Limits</h2>
-        <p>LOLA profiles are available only for sites and directions covered by the supplied DEM. Other sites use a clearly labeled flat-horizon approximation. This terrain model does not validate the Sun/Earth ephemerides or certify mission feasibility.</p>
+        <p>LOLA profiles are available only for sites and directions covered by the supplied DEM. Other sites use a clearly labeled flat-horizon approximation. The elevation unit in the GeoTIFF is unconfirmed. This terrain model does not validate the Sun/Earth ephemerides or certify mission feasibility.</p>
       </section>
     </section>
 
@@ -319,7 +325,11 @@
         </section>
         <section aria-labelledby="about-assumptions-heading">
           <h2 id="about-assumptions-heading">Assumptions</h2>
-          <p>Longitude is East-positive. Elevations are airless (no refraction). Horizons ephemerides use site altitude 0 km; LOLA terrain profiles use the site pixel elevation. Terrain heights are interpreted in meters by product convention, although the supplied GeoTIFF does not encode vertical units. Sites are representative points, not official landing sites.</p>
+          <p>Longitude is East-positive. Elevations are airless (no refraction). Horizons ephemerides use site altitude 0 km; LOLA terrain profiles use the site pixel elevation as observer height. DEM elevations are treated as meters, but the GeoTIFF does not encode or independently confirm that unit. Sites are representative points, not official landing sites.</p>
+        </section>
+        <section aria-labelledby="about-terrain-heading">
+          <h2 id="about-terrain-heading">Terrain data</h2>
+          <p>The supplied raster is from <a href="https://trek.nasa.gov/moon/" target="_blank" rel="noopener noreferrer">NASA Moon Trek</a>, layer “LRO LOLA DEM 87.5 deg v4, S Pole”. The download date and exact selection box were not recorded. Profiles are generated offline from the supplied GeoTIFF using a 3,000 m search radius, 25 m sample spacing, 360 one-degree azimuths and lunar curvature. The observer is at the DEM pixel elevation; the Sun is treated as a point. Profiles are available for Shackleton and Artemis; Malapert, Haworth and Nobile are outside this subset. The vertical unit is assumed to be meters and remains unconfirmed. This is a geometric obstruction model, not continuous ray tracing or a certified power, communications, or landing-feasibility analysis.</p>
         </section>
         <section aria-labelledby="about-limitations-heading">
           <h2 id="about-limitations-heading">Limitations</h2>
@@ -336,7 +346,7 @@
         </section>
         <section aria-labelledby="about-data-heading">
           <h2 id="about-data-heading">Data and credits</h2>
-          <p>Ephemerides: <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons System (DE440/DE441)</a>. Terrain: <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm" target="_blank" rel="noopener">NASA PDS Geosciences Node LOLA data</a>. Reference literature: <a href="https://ntrs.nasa.gov/citations/20170007365" target="_blank" rel="noopener">Gläser et al. (2018), “Illumination Conditions at the Lunar Poles: Implications for Future Exploration”</a>, for the illumination context shown in Validation. Site context: <a href="https://planetarynames.wr.usgs.gov/" target="_blank" rel="noopener">IAU Gazetteer of Planetary Nomenclature</a>.</p>
+          <p>Ephemerides: <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons System (DE440/DE441)</a>. Terrain layer: <a href="https://trek.nasa.gov/moon/" target="_blank" rel="noopener noreferrer">NASA Moon Trek, “LRO LOLA DEM 87.5 deg v4, S Pole”</a>. Reference literature: <a href="https://ntrs.nasa.gov/citations/20170007365" target="_blank" rel="noopener">Gläser et al. (2018), “Illumination Conditions at the Lunar Poles: Implications for Future Exploration”</a>, for the illumination context shown in Validation. Site context: <a href="https://planetarynames.wr.usgs.gov/" target="_blank" rel="noopener">IAU Gazetteer of Planetary Nomenclature</a>.</p>
         </section>
         <section aria-labelledby="about-use-heading">
           <h2 id="about-use-heading">How to use</h2>
