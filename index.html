@@ -13,23 +13,23 @@
   <header class="topbar">
     <div class="topbar-inner">
       <div class="project-name">Lunar Landing Site Navigator</div>
-      <nav class="tabs" role="tablist" aria-label="Main sections">
-        <button class="tab-button active" id="tab-analysis" role="tab" aria-selected="true" aria-controls="panel-analysis" data-tab="analysis">Analysis</button>
-        <button class="tab-button" id="tab-compare" role="tab" aria-selected="false" aria-controls="panel-compare" data-tab="compare">Compare</button>
-        <button class="tab-button" id="tab-validation" role="tab" aria-selected="false" aria-controls="panel-validation" data-tab="validation">Validation</button>
-        <button class="tab-button" id="tab-about" role="tab" aria-selected="false" aria-controls="panel-about" data-tab="about">About</button>
+      <nav class="tabs" role="tablist" aria-label="Main sections" aria-orientation="horizontal">
+        <button class="tab-button active" id="tab-analysis" role="tab" aria-selected="true" aria-controls="panel-analysis" tabindex="0" data-tab="analysis">Analysis</button>
+        <button class="tab-button" id="tab-compare" role="tab" aria-selected="false" aria-controls="panel-compare" tabindex="-1" data-tab="compare">Compare</button>
+        <button class="tab-button" id="tab-validation" role="tab" aria-selected="false" aria-controls="panel-validation" tabindex="-1" data-tab="validation">Validation</button>
+        <button class="tab-button" id="tab-about" role="tab" aria-selected="false" aria-controls="panel-about" tabindex="-1" data-tab="about">About</button>
       </nav>
     </div>
   </header>
 
-  <div class="page-notice" id="horizon-warning">Flat horizon (no terrain data): Sun visibility is an upper bound. All times in UT.</div>
+  <div class="page-notice" id="horizon-warning" role="status" aria-live="polite">Terrain status will be shown after analysis.</div>
   <div class="system-messages">
     <div id="data-message" class="data-message" role="status" hidden></div>
     <div id="app-error" class="app-error" role="alert" hidden></div>
   </div>
 
   <main class="page-content">
-    <section class="tab-panel" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis">
+    <section class="tab-panel" id="panel-analysis" role="tabpanel" aria-labelledby="tab-analysis" tabindex="0">
       <div class="analysis-layout">
         <aside class="settings-panel" aria-label="Analysis settings">
           <h1 class="section-title">Settings</h1>
@@ -75,20 +75,55 @@
 
             <section class="key-metrics" aria-label="Key analysis metrics">
               <div class="key-metric">
-                <span class="metric-label">Score</span>
+                <div class="metric-label-row">
+                  <span class="metric-label">Score</span>
+                  <button class="metric-help" type="button" aria-label="Explain the score" aria-describedby="tip-score">i</button>
+                  <span class="metric-tooltip" id="tip-score" role="tooltip">A weighted planning score from Sun and Earth visibility. It is not a probability of mission success.</span>
+                </div>
                 <strong class="metric-value" id="score-value">--</strong>
               </div>
               <div class="key-metric">
-                <span class="metric-label">Sun visible</span>
+                <div class="metric-label-row">
+                  <span class="metric-label">Sun visible</span>
+                  <button class="metric-help" type="button" aria-label="Explain Sun visibility" aria-describedby="tip-sun-visible">i</button>
+                  <span class="metric-tooltip" id="tip-sun-visible" role="tooltip">Percentage of hourly samples when the Sun is above the modeled horizon; this is not an estimate of usable solar power.</span>
+                </div>
                 <strong class="metric-value" id="sun-percent">--</strong>
               </div>
               <div class="key-metric">
-                <span class="metric-label">Earth visible</span>
+                <div class="metric-label-row">
+                  <span class="metric-label">Earth visible</span>
+                  <button class="metric-help" type="button" aria-label="Explain Earth visibility" aria-describedby="tip-earth-visible">i</button>
+                  <span class="metric-tooltip" id="tip-earth-visible" role="tooltip">Percentage of hourly samples when Earth is above the modeled horizon; relay links and link quality are not modeled.</span>
+                </div>
                 <strong class="metric-value" id="earth-percent">--</strong>
               </div>
               <div class="key-metric">
-                <span class="metric-label">Longest blackout</span>
+                <div class="metric-label-row">
+                  <span class="metric-label">Longest blackout</span>
+                  <button class="metric-help" type="button" aria-label="Explain longest blackout" aria-describedby="tip-blackout">i</button>
+                  <span class="metric-tooltip" id="tip-blackout" role="tooltip">Longest consecutive run of hourly samples with neither the Sun nor Earth visible.</span>
+                </div>
                 <strong class="metric-value" id="blackout-value">--</strong>
+              </div>
+            </section>
+
+            <section class="set-metrics" aria-label="Next horizon events">
+              <div class="set-metric">
+                <div class="metric-label-row">
+                  <span class="metric-label">Time until next sunset</span>
+                  <button class="metric-help" type="button" aria-label="Explain time until sunset" aria-describedby="tip-sunset">i</button>
+                  <span class="metric-tooltip" id="tip-sunset" role="tooltip">Time from the selected sample to the next visible-to-not-visible Sun transition, at the data's hourly resolution.</span>
+                </div>
+                <strong class="set-metric-value" id="sunset-value">--</strong>
+              </div>
+              <div class="set-metric">
+                <div class="metric-label-row">
+                  <span class="metric-label">Time until next Earthset</span>
+                  <button class="metric-help" type="button" aria-label="Explain time until Earthset" aria-describedby="tip-earthset">i</button>
+                  <span class="metric-tooltip" id="tip-earthset" role="tooltip">Time from the selected sample to the next visible-to-not-visible Earth transition, at the data's hourly resolution.</span>
+                </div>
+                <strong class="set-metric-value" id="earthset-value">--</strong>
               </div>
             </section>
 
@@ -101,12 +136,16 @@
                   <label class="zoom-control" for="sky-zoom"><input id="sky-zoom" type="checkbox" checked> Zoom 0–10°</label>
                 </div>
               </div>
-              <canvas id="sky-canvas" aria-label="Polar sky plot of Sun and Earth azimuth and elevation, with horizon profile"></canvas>
+              <canvas id="sky-canvas" role="img" aria-labelledby="sky-heading" aria-describedby="sky-summary"></canvas>
+              <p id="sky-summary" class="visually-hidden">Azimuth is measured clockwise from north. Concentric circles show elevation above the horizon. Solid gold and dashed blue paths show visible hourly Sun and Earth positions. The gray region marks terrain below the horizon profile; colored dots mark the selected time.</p>
               <div class="sky-legend" aria-label="Polar sky plot legend">
-                <span><i class="legend-line sun-line" aria-hidden="true"></i>Sun path</span>
-                <span><i class="legend-line earth-line" aria-hidden="true"></i>Earth path</span>
-                <span><i class="legend-line horizon-line" aria-hidden="true"></i>Horizon</span>
+                <span><i class="legend-line sun-line" aria-hidden="true"></i>Visible Sun path</span>
+                <span><i class="legend-line earth-line" aria-hidden="true"></i>Visible Earth path</span>
+                <span><i class="legend-line horizon-line" aria-hidden="true"></i>Horizon profile</span>
+                <span><i class="legend-dot sun-dot" aria-hidden="true"></i>Sun at selected time</span>
+                <span><i class="legend-dot earth-dot" aria-hidden="true"></i>Earth at selected time</span>
               </div>
+              <p class="sky-legend-note">Azimuth runs clockwise from N; concentric rings indicate elevation. Paths show visible hourly positions. Dots show the selected time.</p>
               <div class="time-controls">
                 <button class="button button-outline" id="play-button" type="button" aria-label="Play time animation">Play</button>
                 <label class="visually-hidden" for="time-slider">Selected time in analysis period</label>
@@ -131,13 +170,26 @@
             <details class="more-details">
               <summary>More details</summary>
               <dl class="details-grid">
-                <div><dt>Longest darkness</dt><dd id="darkness-value">--</dd></div>
-                <div><dt>Longest communication outage</dt><dd id="outage-value">--</dd></div>
-                <div><dt>Time until next sunset</dt><dd id="sunset-value">--</dd></div>
-                <div><dt>Time until next Earthset</dt><dd id="earthset-value">--</dd></div>
-                <div><dt>Current Sun elevation</dt><dd id="current-sun-elevation">--</dd></div>
-                <div><dt>Mean Sun elevation</dt><dd id="mean-sun-elevation">--</dd></div>
-                <div><dt>Maximum Sun elevation</dt><dd id="max-sun-elevation">--</dd></div>
+                <div>
+                  <dt><span class="metric-label-row"><span>Longest darkness</span><button class="metric-help" type="button" aria-label="Explain longest darkness" aria-describedby="tip-darkness">i</button><span class="metric-tooltip" id="tip-darkness" role="tooltip">Longest consecutive run of hourly samples when the Sun is below the modeled horizon.</span></span></dt>
+                  <dd id="darkness-value">--</dd>
+                </div>
+                <div>
+                  <dt><span class="metric-label-row"><span>Longest communication outage</span><button class="metric-help" type="button" aria-label="Explain longest communication outage" aria-describedby="tip-outage">i</button><span class="metric-tooltip" id="tip-outage" role="tooltip">Longest consecutive run of hourly samples when Earth is below the modeled horizon; relay communication is not included.</span></span></dt>
+                  <dd id="outage-value">--</dd>
+                </div>
+                <div>
+                  <dt><span class="metric-label-row"><span>Current Sun elevation</span><button class="metric-help" type="button" aria-label="Explain current Sun elevation" aria-describedby="tip-current-sun">i</button><span class="metric-tooltip" id="tip-current-sun" role="tooltip">Sun elevation at the currently selected hourly sample.</span></span></dt>
+                  <dd id="current-sun-elevation">--</dd>
+                </div>
+                <div>
+                  <dt><span class="metric-label-row"><span>Mean Sun elevation</span><button class="metric-help" type="button" aria-label="Explain mean Sun elevation" aria-describedby="tip-mean-sun">i</button><span class="metric-tooltip" id="tip-mean-sun" role="tooltip">Arithmetic mean of the Sun's hourly elevations across the selected date range.</span></span></dt>
+                  <dd id="mean-sun-elevation">--</dd>
+                </div>
+                <div>
+                  <dt><span class="metric-label-row"><span>Maximum Sun elevation</span><button class="metric-help" type="button" aria-label="Explain maximum Sun elevation" aria-describedby="tip-max-sun">i</button><span class="metric-tooltip" id="tip-max-sun" role="tooltip">Highest sampled Sun elevation in the selected date range.</span></span></dt>
+                  <dd id="max-sun-elevation">--</dd>
+                </div>
               </dl>
             </details>
           </div>
@@ -145,7 +197,7 @@
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-compare" role="tabpanel" aria-labelledby="tab-compare" hidden>
+    <section class="tab-panel" id="panel-compare" role="tabpanel" aria-labelledby="tab-compare" tabindex="0" hidden>
       <h1 class="page-title">Compare sites</h1>
       <section class="compare-controls" aria-label="Comparison settings">
         <fieldset class="site-options">
@@ -164,16 +216,17 @@
           <button class="button button-primary" id="compare-button" type="button">Compare</button>
         </div>
       </section>
-      <p class="compare-note">Flat horizon: Sun % is an upper bound.</p>
+      <p class="compare-note">Terrain source is shown for each site; flat-horizon results are approximate.</p>
       <p id="compare-error" class="inline-error" role="alert" hidden></p>
       <div id="compare-results" hidden>
-        <div class="table-wrap">
+        <div class="table-wrap validation-table-wrap">
           <table>
             <caption id="compare-window-label"></caption>
             <thead>
               <tr>
                 <th scope="col">Rank</th>
                 <th scope="col">Site</th>
+                <th scope="col">Terrain</th>
                 <th scope="col">Sun visible</th>
                 <th scope="col">Earth visible</th>
                 <th scope="col">Longest darkness</th>
@@ -196,14 +249,14 @@
       </div>
     </section>
 
-    <section class="tab-panel" id="panel-validation" role="tabpanel" aria-labelledby="tab-validation" hidden>
+    <section class="tab-panel" id="panel-validation" role="tabpanel" aria-labelledby="tab-validation" tabindex="0" hidden>
       <h1 class="page-title">Validation</h1>
-      <p class="validation-intro">This page checks stored Sun and Earth positions against separate JPL Horizons API queries at the same site and time. Illumination percentages are shown against published studies for context only, because those studies use real terrain and this tool uses a flat horizon.</p>
+      <p class="validation-intro">This page checks stored Sun and Earth positions against separate JPL Horizons API queries at the same site and time. Illumination percentages are shown against published studies for context only; the navigator uses geometric LOLA terrain profiles where available and a clearly labeled flat-horizon fallback elsewhere.</p>
 
       <section class="validation-section" aria-labelledby="horizons-validation-heading">
         <h2 id="horizons-validation-heading">Data check (JPL Horizons)</h2>
         <p id="validation-data-message" class="validation-data-message" role="status" hidden></p>
-        <div class="table-wrap">
+        <div class="table-wrap validation-table-wrap">
           <table>
             <thead>
               <tr>
@@ -224,7 +277,7 @@
 
       <section class="validation-section" aria-labelledby="published-context-heading">
         <h2 id="published-context-heading">Published context</h2>
-        <div class="table-wrap">
+        <div class="table-wrap validation-table-wrap">
           <table>
             <thead>
               <tr>
@@ -244,11 +297,11 @@
 
       <section class="validation-section" aria-labelledby="validation-limits-heading">
         <h2 id="validation-limits-heading">Limits</h2>
-        <p>A flat horizon gives an upper bound on Sun visibility. Terrain-based illumination requires a LOLA horizon profile (future work).</p>
+        <p>LOLA profiles are available only for sites and directions covered by the supplied DEM. Other sites use a clearly labeled flat-horizon approximation. This terrain model does not validate the Sun/Earth ephemerides or certify mission feasibility.</p>
       </section>
     </section>
 
-    <section class="tab-panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+    <section class="tab-panel" id="panel-about" role="tabpanel" aria-labelledby="tab-about" tabindex="0" hidden>
       <h1 class="page-title">About</h1>
       <div class="about-content">
         <section aria-labelledby="about-purpose-heading">
@@ -258,16 +311,22 @@
         </section>
         <section aria-labelledby="about-method-heading">
           <h2 id="about-method-heading">Method</h2>
-          <p>Sun and Earth azimuth and elevation were retrieved once from the <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons API</a> for each site (observer on the Moon, airless, UT time scale, 1-hour steps, 15 Nov 2026 to 15 Feb 2027) and stored as static files. In the browser, a target is counted as visible when its elevation is above the horizon elevation at its azimuth. Sun visibility, Earth visibility, the longest darkness, the longest communication outage and the longest blackout (neither visible) are computed from these hourly states. Score = w<sub>Sun</sub> × Sun visible % + w<sub>Earth</sub> × Earth visible %, with adjustable weights (default 60/40).</p>
+          <p>Sun and Earth azimuth and elevation were retrieved once from the <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons API</a> for each site (observer on the Moon, airless, UT time scale, 1-hour steps, 15 Nov 2026 to 15 Feb 2027) and stored as static files. Offline, the LOLA DEM is sampled along 360 azimuths with lunar curvature included. In the browser, a target is counted as visible when its elevation is above the horizon elevation at its azimuth; unavailable terrain profiles use a labeled flat horizon. Sun visibility, Earth visibility, darkness, communication outage and blackout are computed from hourly states. Score = w<sub>Sun</sub> × Sun visible % + w<sub>Earth</sub> × Earth visible %, with adjustable weights (default 60/40).</p>
+        </section>
+        <section aria-labelledby="about-south-pole-heading">
+          <h2 id="about-south-pole-heading">Why the south pole is difficult</h2>
+          <p>The Sun and Earth stay close to the horizon at many polar locations. Small changes in terrain, location, or arrival date can therefore change sunlight and direct-to-Earth visibility, while crater rims can block either one. Power and communications windows must be planned together; realistic estimates require local terrain data.</p>
         </section>
         <section aria-labelledby="about-assumptions-heading">
           <h2 id="about-assumptions-heading">Assumptions</h2>
-          <p>Longitude is East-positive. Elevations are airless (no refraction). Site altitude is set to 0 km relative to the ellipsoid. Sites are representative points, not official landing sites.</p>
+          <p>Longitude is East-positive. Elevations are airless (no refraction). Horizons ephemerides use site altitude 0 km; LOLA terrain profiles use the site pixel elevation. Terrain heights are interpreted in meters by product convention, although the supplied GeoTIFF does not encode vertical units. Sites are representative points, not official landing sites.</p>
         </section>
         <section aria-labelledby="about-limitations-heading">
           <h2 id="about-limitations-heading">Limitations</h2>
           <ul>
-            <li>No terrain: the horizon is flat (0°), so Sun visibility is an upper bound.</li>
+            <li>LOLA coverage is limited; unavailable sites use a flat 0° horizon, so Sun visibility is an upper bound.</li>
+            <li>Terrain horizons use sampled pixel centers within 3 km at 25 m spacing; this is not continuous ray tracing.</li>
+            <li>The LOLA GeoTIFF does not declare vertical units; confirm the DEM provenance before scientific or operational use.</li>
             <li>The Sun is treated as a point, not a disk of about 0.5°.</li>
             <li>“Visible” means above the horizon, not enough elevation for efficient solar power.</li>
             <li>Hourly sampling can miss events shorter than one hour.</li>
@@ -277,7 +336,7 @@
         </section>
         <section aria-labelledby="about-data-heading">
           <h2 id="about-data-heading">Data and credits</h2>
-          <p>Ephemerides: <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons System (DE440/DE441)</a>. Reference literature: <a href="https://ntrs.nasa.gov/citations/20170007365" target="_blank" rel="noopener">Gläser et al. (2018), “Illumination Conditions at the Lunar Poles: Implications for Future Exploration”</a>, for the illumination context shown in Validation. Site context: <a href="https://planetarynames.wr.usgs.gov/" target="_blank" rel="noopener">IAU Gazetteer of Planetary Nomenclature</a>.</p>
+          <p>Ephemerides: <a href="https://ssd.jpl.nasa.gov/horizons/" target="_blank" rel="noopener">NASA JPL Horizons System (DE440/DE441)</a>. Terrain: <a href="https://pds-geosciences.wustl.edu/missions/lro/lola.htm" target="_blank" rel="noopener">NASA PDS Geosciences Node LOLA data</a>. Reference literature: <a href="https://ntrs.nasa.gov/citations/20170007365" target="_blank" rel="noopener">Gläser et al. (2018), “Illumination Conditions at the Lunar Poles: Implications for Future Exploration”</a>, for the illumination context shown in Validation. Site context: <a href="https://planetarynames.wr.usgs.gov/" target="_blank" rel="noopener">IAU Gazetteer of Planetary Nomenclature</a>.</p>
         </section>
         <section aria-labelledby="about-use-heading">
           <h2 id="about-use-heading">How to use</h2>

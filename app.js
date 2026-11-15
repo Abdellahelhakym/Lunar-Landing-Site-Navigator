@@ -179,11 +179,15 @@ function samplesForRange(siteId, start, end) {
 }
 
 function horizonForSite(siteId) {
-  const profile = state.horizons[siteId];
-  if (!Array.isArray(profile) || profile.length < 360 || profile.slice(0, 360).some((value) => !Number.isFinite(Number(value)))) {
+  const profiles = state.horizons.sites && typeof state.horizons.sites === 'object'
+    ? state.horizons.sites
+    : state.horizons;
+  const profile = profiles[siteId];
+  const angles = Array.isArray(profile) ? profile : profile?.status === 'available' ? profile.horizonAngles : null;
+  if (!Array.isArray(angles) || angles.length < 360 || angles.slice(0, 360).some((value) => !Number.isFinite(Number(value)))) {
     return { values: Array(360).fill(0), approximate: true };
   }
-  return { values: profile.slice(0, 360).map(Number), approximate: false };
+  return { values: angles.slice(0, 360).map(Number), approximate: false };
 }
 
 function isVisible(el, az, horizon) {
@@ -280,8 +284,12 @@ function currentSunWeight() {
   return Number($('#sun-weight').value) / 100;
 }
 
-function setHorizonWarning() {
-  $('#horizon-warning').hidden = false;
+function setHorizonWarning(horizon) {
+  const warning = $('#horizon-warning');
+  warning.textContent = horizon.approximate
+    ? 'Flat Horizon Approximation – Terrain data unavailable. Sun visibility is an upper bound. All times in UT.'
+    : 'NASA LOLA Terrain Model: Active. Geometric terrain obstruction only; not a mission-feasibility prediction. All times in UT.';
+  warning.hidden = false;
 }
 
 function fillSiteControls() {
@@ -341,7 +349,7 @@ function analyze() {
     state.activeHorizon = horizon.values;
     state.currentMetrics = metrics;
     state.selectedIndex = 0;
-    setHorizonWarning(horizon.approximate);
+    setHorizonWarning(horizon);
     $('#app-error').hidden = true;
     renderAnalysis();
   } catch (error) {
@@ -437,8 +445,8 @@ function drawSkyPlot() {
   ctx.closePath();
   ctx.fillStyle = 'rgba(125, 141, 162, .12)';
   ctx.fill();
-  ctx.strokeStyle = '#6b7785';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = '#b3c0cd';
+  ctx.lineWidth = 1.5;
   ctx.stroke();
   const zoomed = state.skyZoom;
   const maxElevation = zoomed ? 10 : 90;
@@ -449,8 +457,8 @@ function drawSkyPlot() {
       : radius * (90 - elevation) / 90;
     ctx.beginPath();
     ctx.arc(cx, cy, ringRadius, 0, Math.PI * 2);
-    ctx.strokeStyle = elevation === 0 ? '#6b7785' : '#26313d';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = elevation === 0 ? '#b3c0cd' : '#667585';
+    ctx.lineWidth = elevation === 0 ? 1.5 : 1;
     ctx.setLineDash(elevation === 0 ? [] : [3, 5]);
     ctx.stroke();
   }
@@ -483,7 +491,7 @@ function drawEphemerisPath(ctx, samples, target, color, cx, cy, radius) {
   let drawing = false;
   samples.forEach((sample) => {
     const pointData = sample[target];
-    if (Number(pointData.el) < 0) {
+    if (!isVisible(pointData.el, pointData.az, state.activeHorizon)) {
       drawing = false;
       return;
     }
@@ -492,10 +500,15 @@ function drawEphemerisPath(ctx, samples, target, color, cx, cy, radius) {
     else ctx.lineTo(point.x, point.y);
     drawing = true;
   });
-  ctx.strokeStyle = color;
-  ctx.lineWidth = 1.2;
-  ctx.globalAlpha = .68;
+  ctx.strokeStyle = '#0f141a';
+  ctx.lineWidth = 5;
+  ctx.globalAlpha = .95;
   ctx.stroke();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2.8;
+  ctx.setLineDash(target === 'earth' ? [7, 4] : []);
+  ctx.stroke();
+  ctx.setLineDash([]);
   ctx.globalAlpha = 1;
 }
 
@@ -637,7 +650,11 @@ function compareSites() {
     const results = selectedIds.map((id) => {
       const site = state.sites.find((item) => item.id === id);
       const horizon = horizonForSite(id);
-      return { site, ...calculateMetrics(samplesForRange(id, $('#compare-start').value, $('#compare-end').value), horizon.values, currentSunWeight()) };
+      return {
+        site,
+        terrainApproximate: horizon.approximate,
+        ...calculateMetrics(samplesForRange(id, $('#compare-start').value, $('#compare-end').value), horizon.values, currentSunWeight())
+      };
     });
     state.compareMetrics = results;
     error.hidden = true;
@@ -654,6 +671,7 @@ function renderCompareResults(results) {
   const ranked = [...results].sort((a, b) => b.score - a.score);
   $('#compare-table-body').innerHTML = ranked.map((item, index) => `
     <tr><td>${String(index + 1).padStart(2, '0')}</td><td>${escapeHtml(item.site.name)}</td>
+    <td>${item.terrainApproximate ? 'Flat approx.' : 'LOLA'}</td>
     <td>${item.sunPercent.toFixed(1)}%</td><td>${item.earthPercent.toFixed(1)}%</td>
     <td>${formatPeriodRun(item.longestDarkness, item.sunVisible, 'None in this period')}</td><td>${formatPeriodRun(item.longestOutage, item.earthVisible)}</td><td><strong>${Math.round(item.score)}</strong></td></tr>`).join('');
   drawCompareChart(ranked);
@@ -711,16 +729,17 @@ function compareRanges() {
   const siteId = $('#range-site').value;
   const site = state.sites.find((item) => item.id === siteId);
   try {
-    const horizon = horizonForSite(siteId).values;
-    const windowA = calculateMetrics(samplesForRange(siteId, $('#range-a-start').value, $('#range-a-end').value), horizon, currentSunWeight());
-    const windowB = calculateMetrics(samplesForRange(siteId, $('#range-b-start').value, $('#range-b-end').value), horizon, currentSunWeight());
+    const horizon = horizonForSite(siteId);
+    const windowA = calculateMetrics(samplesForRange(siteId, $('#range-a-start').value, $('#range-a-end').value), horizon.values, currentSunWeight());
+    const windowB = calculateMetrics(samplesForRange(siteId, $('#range-b-start').value, $('#range-b-end').value), horizon.values, currentSunWeight());
     const results = [windowA, windowB].map((metrics, index) => `
       <article class="range-result"><h3>Window ${index ? 'B' : 'A'}</h3>
       <p>${index ? $('#range-b-start').value : $('#range-a-start').value} — ${index ? $('#range-b-end').value : $('#range-a-end').value}</p>
       <p>Sun illumination <strong>${metrics.sunPercent.toFixed(1)}%</strong> · Earth visibility <strong>${metrics.earthPercent.toFixed(1)}%</strong></p>
       <p>Longest darkness <strong>${formatDuration(metrics.longestDarkness)}</strong> · Longest outage <strong>${formatDuration(metrics.longestOutage)}</strong></p>
       <p>Weighted score <strong>${Math.round(metrics.score)} / 100</strong></p></article>`).join('');
-    $('#range-results').innerHTML = `<p class="muted small" style="grid-column:1/-1">${escapeHtml(site.name)}</p>${results}`;
+    const terrainLabel = horizon.approximate ? 'Flat Horizon Approximation – Terrain data unavailable' : 'NASA LOLA Terrain Model';
+    $('#range-results').innerHTML = `<p class="muted small" style="grid-column:1/-1">${escapeHtml(site.name)} · ${terrainLabel}</p>${results}`;
     $('#range-results').hidden = false;
   } catch (error) {
     $('#range-results').innerHTML = `<p class="inline-error" role="alert">${escapeHtml(error.message)}</p>`;
@@ -872,11 +891,13 @@ function setupEvents() {
   document.querySelectorAll('.tab-button').forEach((tab) => {
     tab.addEventListener('click', () => setActiveTab(tab.dataset.tab, false));
     tab.addEventListener('keydown', (event) => {
-      if (event.key !== 'ArrowLeft' && event.key !== 'ArrowRight') return;
+      if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return;
       event.preventDefault();
       const tabs = Array.from(document.querySelectorAll('.tab-button'));
       const current = tabs.indexOf(tab);
-      const next = (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
+      const next = event.key === 'Home' ? 0
+        : event.key === 'End' ? tabs.length - 1
+          : (current + (event.key === 'ArrowRight' ? 1 : -1) + tabs.length) % tabs.length;
       setActiveTab(tabs[next].dataset.tab, true);
     });
   });
@@ -896,7 +917,7 @@ async function initialize() {
     initializeDates();
     renderValidation();
     setupEvents();
-    setHorizonWarning(horizonForSite(state.sites[0].id).approximate);
+    setHorizonWarning(horizonForSite(state.sites[0].id));
     analyze();
     compareSites();
   } catch (error) {
@@ -905,4 +926,4 @@ async function initialize() {
   }
 }
 
-initialize();
+if (typeof document !== 'undefined') initialize();

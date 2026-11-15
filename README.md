@@ -1,82 +1,107 @@
-<!-- Developed with AI assistance (Claude). Idea and design by the team. -->
+<!-- Développé avec l'aide de l'IA (Claude). Idée et conception par l'équipe. -->
 # Lunar Landing Site Navigator
 
-Developed with AI assistance (Claude). Idea and design by the team.
+## Présentation du projet
 
-A static, front-end-only decision-support app for comparing lunar south-pole landing sites by solar illumination and Earth visibility. It uses HTML, CSS, vanilla JavaScript, and canvas; there is no build step or runtime server.
+**Lunar Landing Site Navigator** est une application web statique d'aide à la comparaison de points représentatifs près du pôle Sud lunaire. Elle estime, pour une période choisie, la durée pendant laquelle le Soleil (source d'énergie) et la Terre (communication directe) se trouvent au-dessus de l'horizon local. Elle signale également les périodes de nuit, de perte de visibilité de la Terre et de perte simultanée des deux.
 
-## Run locally
+L'interface propose quatre sections : **Analysis** pour examiner un site et une période, **Compare** pour classer plusieurs sites, **Validation** pour consulter les contrôles de données, et **About** pour les hypothèses, limites et sources.
 
-Because the app loads JSON with `fetch`, open it through a local static HTTP server rather than directly as a `file://` URL. For example, use the VS Code Live Server extension and open this project’s root `index.html`. The same static files can be deployed to GitHub Pages.
+Le projet côté navigateur utilise HTML, CSS, JavaScript sans framework et Canvas. Il n'y a pas de compilation ni de serveur applicatif. Les positions célestes sont pré-calculées et enregistrées en JSON : le navigateur ne contacte pas NASA/JPL Horizons. Un serveur HTTP statique est toutefois nécessaire pour charger ces fichiers JSON avec `fetch` (par exemple l'extension Live Server de VS Code). Ouvrir directement `index.html` avec une adresse `file://` empêche généralement leur chargement.
 
-## Data files
+## Fonctionnement général
 
-Place data files under `data/` beside `index.html`:
+1. Au démarrage, `app.js` charge les sites et les éphémérides depuis `data/`, puis initialise les contrôles de date et les graphiques.
+2. L'utilisateur choisit un site et une période. Les échantillons horaires du Soleil et de la Terre sont associés par leur horodatage UTC; seuls ceux de la période sélectionnée sont analysés.
+3. Pour chaque échantillon, l'application compare l'élévation de l'astre à l'élévation du terrain dans sa direction. Elle transforme ensuite ces états visibles/invisibles en pourcentages, durées et score.
+4. Les résultats sont affichés sous forme de métriques, d'un diagramme polaire du ciel, d'une chronologie et, dans l'onglet Compare, d'un tableau classé et d'un graphique.
 
-- `sites.json`: array of `{ "id", "name", "lon", "lat", "alt_km" }` site records. Longitude is positive east (`-5.17` is 5.17° west). Optional `coordinate_note` text is shown beside the selected site.
-- `ephemeris.json`: generated object with a `sites` map keyed by site ID, containing hourly `sun` and `earth` samples with `t`, `az`, and `el`. The app also accepts the earlier root-level site-map format.
-- `horizon.json` (optional): object keyed by site ID, each value a 360-element horizon-elevation array. Missing terrain data triggers the visible flat-horizon warning.
-- `validation.json` (optional): an object with `horizons_check` and `published_context` arrays. Horizons rows contain `site`, `target`, `t`, computed and Horizons azimuth/elevation, and source fields. Published-context rows contain `site`, `metric`, `computed`, `reference`, `source`, and `note`.
+### Algorithmes et indicateurs
 
-When sites or ephemeris data are unavailable, the app uses clearly identified illustrative sample data. The Validation tab has three sections: a Horizons data check, published context, and limits. If no published-context rows are provided, it shows the built-in Gläser et al. (2018) reference and labels it not comparable.
+- **Visibilité** : l'azimut est arrondi au degré le plus proche pour choisir l'une des 360 directions de l'horizon. Un astre est visible si son élévation est strictement supérieure à celle de l'horizon dans cette direction. Sans profil de terrain valide, l'horizon vaut 0° partout; cette hypothèse rend généralement la visibilité solaire optimiste.
+- **Pourcentage visible** : nombre d'échantillons où l'astre est visible divisé par le nombre d'échantillons horaires appariés de la période, multiplié par 100.
+- **Nuit la plus longue** : plus longue suite consécutive d'échantillons où le Soleil n'est pas visible. **Perte de communication la plus longue** : même calcul lorsque la Terre n'est pas visible. **Blackout le plus long** : suite où ni le Soleil ni la Terre ne sont visibles. La durée est obtenue en multipliant le nombre d'échantillons consécutifs par leur espacement horaire.
+- **Prochaine disparition** : depuis l'heure sélectionnée, l'application cherche le premier passage d'un état visible à un état invisible et indique le temps correspondant. Si aucun passage n'existe dans la période, elle le précise.
+- **Score** : `poids Soleil × % Soleil visible + poids Terre × % Terre visible`. Le curseur règle le poids du Soleil de 0 à 100 %; celui de la Terre complète toujours à 100 %. Les valeurs initiales sont 60 % et 40 %. Ce score est un choix de planification, pas une mesure scientifique validée.
+- **Comparaison** : le même calcul est exécuté pour chaque site sélectionné sur la même période; le classement est décroissant selon le score.
+- **Diagramme polaire** : l'azimut donne la direction (Nord en haut, Est à droite) et l'élévation donne la distance au centre. Le réglage de zoom montre soit les 0–10° au-dessus de l'horizon, soit une plage plus large. Les trajectoires visibles du Soleil (trait doré continu) et de la Terre (trait bleu discontinu), le profil d'horizon et les positions à l'heure sélectionnée sont distingués dans la légende. La chronologie code les états « Soleil + Terre », « un seul visible » et « aucun visible ».
 
-## Method
+Les métriques disposent d'infobulles accessibles au survol et au focus clavier. Les onglets se parcourent avec les flèches gauche/droite et les touches Début/Fin. La page About explique aussi pourquoi le pôle Sud lunaire pose des contraintes d'éclairage et de communication.
 
-Sun and Earth azimuth and elevation were retrieved from the NASA JPL Horizons API for each site using the Moon as the observer, airless settings, UT, and hourly steps from 15 Nov 2026 to 15 Feb 2027. The results are stored as static JSON; the deployed site does not call Horizons. A target is visible when its elevation is above the horizon elevation at its azimuth. With no terrain profile, the horizon is flat at 0°. Visibility percentages count visible hourly samples; darkness, communication outage, and blackout durations are derived from consecutive hourly states.
+Les durées sont calculées sur des échantillons horaires, et non sur une interpolation continue. Une période d'invisibilité qui commence ou finit au bord de la plage de dates est affichée avec `≥`, car sa durée complète peut se trouver en dehors de la période observée.
 
-## Score
+### Données de terrain et limites scientifiques
 
-Score = w_Sun × Sun visible % + w_Earth × Earth visible %, with default weights of 60% Sun and 40% Earth. Sun receives the slightly higher default weight because without power a spacecraft can neither operate nor communicate. The weights can be adjusted in the interface and are a planning preference, not an empirically calibrated value.
+Les directions et élévations du Soleil et de la Terre proviennent de NASA JPL Horizons (DE440/DE441), avec un observateur sur la Lune, des coordonnées géodésiques, une atmosphère désactivée (« airless »), l'échelle UT et un pas d'une heure. Le jeu fourni couvre du 15 novembre 2026 au 15 février 2027. Le script de génération interroge Horizons; l'application web n'effectue pas ces requêtes.
 
-## Validation
+Le script `scripts/generate_horizon.js` lit le GeoTIFF LOLA et écrit `data/horizon.json`. Le fichier fourni couvre Shackleton et le point représentatif Artemis; Malapert, Haworth et Nobile sont hors de la couverture de ce sous-ensemble. Les profils disponibles sont calculés sur 3 km, avec un pas de 25 m, pour 360 azimuts. Ces paramètres sont configurables. Le script lit les rangées du GeoTIFF à la demande; il ne charge pas le DEM complet en mémoire. Un profil est marqué indisponible si un échantillon requis sort de la couverture, contient NoData, ou si une direction n'a aucun échantillon. L'application conserve alors l'horizon plat et l'indique dans la bannière.
 
-`data/validation.json` stores four ephemeris samples alongside fresh NASA JPL Horizons API results in `horizons_check`; the stored and queried azimuth/elevation values differ by less than 0.001° at all four checked times. `published_context` is reserved for literature references and is not a like-for-like comparison. The built-in 88.0% Gläser et al. (2018) value is for a south-polar ridge between Shackleton and de Gerlache with a 2 m lander. It uses terrain and a different site and period, so no numerical difference is presented. These checks verify ephemeris retrieval and parsing, not the terrain model.
+Le calcul utilise les coordonnées géographiques et le rayon lunaire sphérique de 1 737 400 m encodé dans les GeoKeys. La courbure est prise en compte dans l'angle apparent du relief; les centres des pixels les plus proches sont échantillonnés le long de rayons géodésiques. L'horizon tangent local à 0° est conservé comme minimum, pour que le relief en contrebas ne rende pas visibles des astres sous l'horizon lunaire. Ce n'est pas un ray-tracing continu et les obstacles plus petits que le pas d'échantillonnage peuvent être manqués. Les valeurs d'altitude sont interprétées en mètres selon la convention des produits DEM LOLA, mais le GeoTIFF fourni n'encode pas explicitement son unité verticale : cette provenance doit être confirmée avant tout usage scientifique ou opérationnel. L'altitude `0 km` des éphémérides Horizons ne correspond pas nécessairement à l'altitude du pixel LOLA utilisé comme observateur.
 
-## Limitations
+Les points sont représentatifs, pas des sites d'atterrissage officiels. Les coordonnées de certaines régions candidates sont approximatives. Le Soleil est considéré comme un point, et un pas horaire peut manquer des événements plus courts qu'une heure. Le modèle ne fournit ni prédiction complète de puissance, ni visibilité radio certifiée, ni faisabilité d'atterrissage. Les résultats sont un outil de comparaison préliminaire seulement.
 
-- The horizon is flat when no terrain profile is supplied, so Sun visibility is an upper bound.
-- The Sun is treated as a point source.
-- Hourly sampling can miss events shorter than one hour.
-- The five available sites are representative points, not official landing sites.
-- Site altitude is set to 0 km above the reference ellipsoid; this is not local terrain elevation.
+L'onglet Validation compare certains échantillons arrondis aux valeurs de référence JPL Horizons et affiche un contexte de littérature distinct. La valeur de Gläser et al. (2018) concerne une crête et un modèle de terrain/atterrisseur différents : elle n'est pas une comparaison numérique équivalente. Le contrôle de positions célestes ne valide pas un modèle de terrain.
 
-## Coordinate and altitude cautions
+## Rôle des fichiers
 
-The Gazetteer of Planetary Nomenclature gives these feature centers in the Moon's planetographic, east-positive system:
+| Fichier | Rôle |
+|---|---|
+| `README.md` | Documentation du projet : présentation, méthode, algorithmes, limites, sources et instructions d'exécution. |
+| `index.html` | Structure et contenu de l'interface : onglets, formulaires, indicateurs, tableaux et éléments Canvas. Charge `style.css` et `app.js`. |
+| `style.css` | Mise en forme, thème sombre, disposition adaptative, états visuels et règles d'accessibilité. |
+| `app.js` | Logique navigateur : chargement et contrôle des données, calculs de visibilité et de score, gestion des interactions, comparaison, validation et dessin des graphiques. |
+| `data/sites.json` | Catalogue des points étudiés : identifiant, nom, longitude Est-positive, latitude, altitude simplifiée et notes sur les coordonnées. |
+| `data/ephemeris.json` | Éphémérides horaires du Soleil et de la Terre par site, calculées par Horizons et consommées par l'application. |
+| `data/horizon.json` | Profils d'horizon LOLA par site, avec statut explicite et paramètres de calcul; les sites indisponibles n'utilisent pas de profil fictif. |
+| `data/validation.json` | Échantillons de contrôle JPL Horizons et, éventuellement, lignes de contexte scientifique publiées. |
+| `scripts/fetch_horizons.js` | Script Node.js qui lit les sites, interroge l'API JPL Horizons pour le Soleil et la Terre, analyse les réponses, puis écrit les nouvelles éphémérides et conserve une sauvegarde. |
+| `scripts/generate_horizon.js` | Générateur Node.js des profils LOLA; vérifie la projection et la couverture, traite NoData et prend en compte la courbure lunaire. |
+| `scripts/generate_horizon.test.js` | Tests du DEM, de la couverture, des profils, des NoData, de la géométrie et du repli navigateur. |
 
-- [Haworth crater](https://planetarynames.wr.usgs.gov/Feature/14502): 87.45° S, 5.17° W (`lat: -87.45`, `lon: -5.17`).
-- [Nobile crater](https://planetarynames.wr.usgs.gov/Feature/4321): 85.28° S, 53.27° E (`lat: -85.28`, `lon: 53.27`).
-- [Shackleton crater](https://planetarynames.wr.usgs.gov/Feature/5450): the Gazetteer gives a feature center of 89.67° S, 129.78° E and separately lists a point at 89.90° S, 0.00° E. The data file uses the latter as a representative point, not the Gazetteer center or an official landing coordinate.
+`data/horizon.json` est chargé comme un fichier statique, sans serveur Node.js en production; il est compatible avec GitHub Pages. L'application accepte le nouveau format `metadata` / `sites` ainsi que l'ancien format en tableaux indexés par identifiant de site. Un profil absent, invalide ou marqué indisponible entraîne l'utilisation de l'horizon plat et l'affichage de « Flat Horizon Approximation – Terrain data unavailable ».
 
-NASA's [Artemis III candidate-region announcement](https://www.nasa.gov/news-release/nasa-identifies-candidate-regions-for-landing-next-americans-on-moon/) names Peak Near Shackleton and Malapert Massif, but does not publish one exact landing-site coordinate for either region. Their entries here are representative points only, not NASA-provided site coordinates. Replace these proxies with mission-approved coordinates before treating the output as site-specific.
+Si les fichiers de sites ou d'éphémérides sont indisponibles, l'application dispose de données illustratives de secours. Elles servent uniquement à montrer l'interface et ne doivent pas être utilisées pour tirer des conclusions scientifiques ou de mission. La validation est elle aussi facultative.
 
-`alt_km: 0` is a simplifying height of zero above the reference ellipsoid; it is not the local terrain elevation. Actual surface elevation and horizon obstruction require a terrain/DEM model. The current zero-altitude values must not be interpreted as measured landing-pad elevations.
+Le script d'éphémérides crée également `data/ephemeris.backup.json` comme fichier de sauvegarde; ce fichier est ignoré par Git.
 
-## Generate ephemeris data
+## Lancer l'application
 
-With Node.js 18 or newer and valid site records in `data/sites.json`, run:
+Depuis la racine du projet, servir les fichiers via un serveur HTTP statique. Avec VS Code, installer/activer **Live Server**, puis ouvrir la racine `index.html` avec « Open with Live Server ». Le même ensemble de fichiers peut être publié sur GitHub Pages.
+
+## Régénérer les éphémérides
+
+Prérequis : Node.js 18 ou une version ultérieure et une connexion à l'API NASA JPL Horizons.
+
+Depuis la racine du projet :
 
 ```text
 node scripts/fetch_horizons.js
 ```
 
-The script queries NASA JPL Horizons for each site's Sun and Earth azimuth/elevation at hourly UT intervals, writes `data/ephemeris.json`, and preserves the prior result as `data/ephemeris.backup.json`. It retries transient request errors and reports sites that could not be completed. The website itself remains static and does not call Horizons. Review and replace the explicitly labeled approximate site coordinates before generating data for operational use.
+Le script lit `data/sites.json`, effectue une requête pour le Soleil et une pour la Terre à chaque site, limite le rythme des requêtes, réessaie certaines erreurs temporaires, et écrit `data/ephemeris.json`. Les sites dont l'une des requêtes échoue sont signalés; les autres sites terminés peuvent être enregistrés. Vérifier les messages d'échec, la plage et le pas des dates ainsi que la plausibilité des résultats avant d'utiliser les nouvelles données. Toute coordonnée approximative doit être vérifiée et remplacée par une coordonnée approuvée avant un usage opérationnel.
 
-After a run, check that:
+## Générer et tester les profils LOLA
 
-1. The output contains `meta` and a `sites` object with both `sun` and `earth` samples for each completed site.
-2. Sample timestamps are hourly UT values within the configured start and stop dates, and azimuth/elevation values are numeric.
-3. The summary table's point counts and above-horizon percentages are plausible for each location; inspect failed-site messages before using the data.
+Le DEM source doit se trouver dans `data_raw/LRO_LOLA_DEM_SPole875_5mp_v04_EQ-subsetted.tif`. Depuis la racine du projet :
 
-## Developer notes
+```text
+node scripts/generate_horizon.js
+npm test
+```
 
-For a short test run, temporarily set `STOP_TIME` to `2026-11-18`, then restore it to `2027-02-15` before generating the full interval. Around the pole, unexpectedly large Sun elevations (for example, tens of degrees) are a reason to recheck the coordinates and observer settings.
+Le rayon par défaut est de 3 000 m et le pas d'échantillonnage de 25 m. Pour les modifier :
 
-## Included features
+```text
+node scripts/generate_horizon.js --max-distance-m 3000 --sample-step-m 25
+```
 
-- Analysis with date selection, normalized Sun/Earth weights, visibility metrics, polar sky plot, hourly timeline, and animation.
-- Ranked site comparison and two-window comparison for one site.
-- Three-part Validation page and an About page with method, assumptions, limits, and data credits.
-- Responsive dark theme, keyboard-operable controls, and text labels alongside timeline colors.
+Une distance trop grande peut dépasser la couverture du DEM, notamment près du pôle; les sites concernés seront explicitement marqués indisponibles. L'application web n'a besoin que de `data/horizon.json`, pas du GeoTIFF de 520 Mo.
 
-Ephemerides are sourced from NASA JPL Horizons (DE440/DE441), and the IAU Gazetteer is used for site context. The app does not use LOLA, Moon Trek, or LROC Quickmap data, and includes no NASA logos or copied map imagery.
+## Sources
+
+- Éphémérides : [NASA JPL Horizons](https://ssd.jpl.nasa.gov/horizons/)
+- Données et documentation LOLA : [NASA PDS Geosciences Node](https://pds-geosciences.wustl.edu/missions/lro/lola.htm)
+- Contexte de nomenclature lunaire : [IAU Gazetteer of Planetary Nomenclature](https://planetarynames.wr.usgs.gov/)
+- Contexte d'éclairage : [Gläser et al. (2018), *Illumination Conditions at the Lunar Poles: Implications for Future Exploration*](https://ntrs.nasa.gov/citations/20170007365)
+
+Le projet n'intègre pas Moon Trek ou LROC Quickmap ni d'images cartographiques de la NASA.
